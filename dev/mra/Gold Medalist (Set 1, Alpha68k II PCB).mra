@@ -1,7 +1,7 @@
 <misterromdescription>
     <name>Gold Medalist (Set 1, Alpha68k II PCB)</name>
     <setname>goldmedl</setname>
-    <rbf>alpha68k</rbf>
+    <rbf>Alpha68k</rbf>
     <mameversion>0249</mameversion>
     <year>1988</year>
     <manufacturer>Alpha Denshi Co.</manufacturer>

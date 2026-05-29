@@ -1,7 +1,7 @@
 <misterromdescription>
     <name>Time Soldiers (US Rev 3)</name>
     <setname>timesold</setname>
-    <rbf>alpha68k</rbf>
+    <rbf>Alpha68k</rbf>
     <mameversion>0249</mameversion>
     <year>1987</year>
     <manufacturer>Alpha Denshi Co.</manufacturer>
@@ -9,7 +9,7 @@
     <joystick>Rotary</joystick>
     <rotation>vertical (cw)</rotation>
 
-    <switches default="ff,ff">
+    <switches default="df,ff">
         <!-- IN3 -->
         <dip name="Flip Screen" bits="2" ids="On,Off"/>
         <dip name="Difficulty" bits="3,4" ids="Easy,Hard,Normal"/>
