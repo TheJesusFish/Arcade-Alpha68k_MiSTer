@@ -20,44 +20,8 @@
 
 module emu
 (
-    //Master input clock
-    input         CLK_50M,
-
-    //Async reset from top-level module.
-    //Can be used as initial reset.
-    input         RESET,
-
-    //Must be passed to hps_io module
-    inout  [45:0] HPS_BUS,
-
-    //Base video clock. Usually equals to CLK_SYS.
-    output        CLK_VIDEO,
-
-    //Multiple resolutions are supported using different CE_PIXEL rates.
-    //Must be based on CLK_VIDEO
-    output        CE_PIXEL,
-
-    //Video aspect ratio for HDMI. Most retro systems have ratio 4:3.
-    //if VIDEO_ARX[12] or VIDEO_ARY[12] is set then [11:0] contains scaled size instead of aspect ratio.
-    output [12:0] VIDEO_ARX,
-    output [12:0] VIDEO_ARY,
-
-    output  [7:0] VGA_R,
-    output  [7:0] VGA_G,
-    output  [7:0] VGA_B,
-    output        VGA_HS,
-    output        VGA_VS,
-    output        VGA_DE,    // = ~(VBlank | HBlank)
-    output        VGA_F1,
-    output [1:0]  VGA_SL,
-    output        VGA_SCALER, // Force VGA scaler
-    output        VGA_DISABLE,
-
-    input  [11:0] HDMI_WIDTH,
-    input  [11:0] HDMI_HEIGHT,
-    output        HDMI_FREEZE,
-    output        HDMI_BLACKOUT,
-    output        HDMI_BOB_DEINT,
+	`include "sys/emu_ports.vh"
+);
 
 `ifdef MISTER_FB
     // Use framebuffer in DDRAM (USE_FB=1 in qsf)
@@ -181,7 +145,7 @@ assign USER_OUT = 0;
 assign {UART_RTS, UART_TXD, UART_DTR} = 0;
 assign {SD_SCK, SD_MOSI, SD_CS} = 'Z;
 //assign {SDRAM_DQ, SDRAM_A, SDRAM_BA, SDRAM_CLK, SDRAM_CKE, SDRAM_DQML, SDRAM_DQMH, SDRAM_nWE, SDRAM_nCAS, SDRAM_nRAS, SDRAM_nCS} = 'Z;
-//assign {DDRAM_CLK, DDRAM_BURSTCNT, DDRAM_ADDR, DDRAM_DIN, DDRAM_BE, DDRAM_RD, DDRAM_WE} = '0;  
+//assign {DDRAM_CLK, DDRAM_BURSTCNT, DDRAM_ADDR, DDRAM_DIN, DDRAM_BE, DDRAM_RD, DDRAM_WE} = '0;
 
 assign VGA_F1 = 0;
 assign VGA_SCALER = 0;
@@ -199,11 +163,11 @@ assign BUTTONS = 0;
 assign m68k_a[0] = 0;
 
 // Status Bit Map:
-//              Upper Case                     Lower Case           
-// 0         1         2         3          4         5         6   
+//              Upper Case                     Lower Case
+// 0         1         2         3          4         5         6
 // 01234567890123456789012345678901 23456789012345678901234567890123
 // 0123456789ABCDEFGHIJKLMNOPQRSTUV 0123456789ABCDEFGHIJKLMNOPQRSTUV
-// X   XXXXXX        XXXXX XXXXXXXX      XX                         
+// X   XXXXXX        XXXXX XXXXXXXX      XX
 
 wire [1:0]  aspect_ratio = status[9:8];
 wire        orientation = ~status[3];
@@ -219,7 +183,7 @@ wire kill_laugh = status[37];
 assign VIDEO_ARX = (!aspect_ratio) ? (orientation  ? 8'd8 : 8'd7) : (aspect_ratio - 1'd1);
 assign VIDEO_ARY = (!aspect_ratio) ? (orientation  ? 8'd7 : 8'd8) : 12'd0;
 
-`include "build_id.v" 
+`include "build_id.v"
 localparam CONF_STR = {
     "Alpha68k;;",
     "-;",
@@ -287,7 +251,7 @@ hps_io #(.CONF_STR(CONF_STR)) hps_io
     .gamma_bus(gamma_bus),
     .direct_video(direct_video),
     .video_rotated(video_rotated),
-    
+
     .ioctl_download(ioctl_download),
     .ioctl_upload(ioctl_upload),
     .ioctl_wr(ioctl_wr),
@@ -342,7 +306,7 @@ localparam BATFIELD    = 7;
 localparam GOLDMEDL    = 8;
 
 reg [1:0] board_rev ;
-reg [1:0] mcu_type  ; 
+reg [1:0] mcu_type  ;
 reg       coin_type ;
 reg       invert_in ;
 
@@ -363,7 +327,7 @@ always @(posedge clk_sys) begin
             pcb <= ioctl_dout;
         end else if (ioctl_addr == 1) begin
             board_rev <= ioctl_dout[5:4];
-            mcu_type  <= ioctl_dout[3:2]; 
+            mcu_type  <= ioctl_dout[3:2];
             coin_type <= ioctl_dout[1];
             invert_in <= ioctl_dout[0];
         end
@@ -389,40 +353,40 @@ always @ (posedge clk_sys ) begin
         // controls are active low
         p1   <=  { start1, start3, p2_buttons[1], p1_buttons[1], p2_buttons[2], p2_buttons[0], p1_buttons[2], p1_buttons[0]} ;
         p2   <=  { start2, start4, p4_buttons[1], p3_buttons[1], p4_buttons[2], p4_buttons[0], p3_buttons[2], p3_buttons[0]} ;
-        
-        dsw_m68k <=  ~{sw[0][7:2], ~key_test, ~key_service};  
-        dsw_sp85 <=   {sw[1][7:0] }; 
+
+        dsw_m68k <=  ~{sw[0][7:2], ~key_test, ~key_service};
+        dsw_sp85 <=   {sw[1][7:0] };
     end else if ( invert_in == 0 ) begin
         // non inverted - active low
         p1   <=  ~{ start1, p1_buttons[2:0], p1_right, p1_left, p1_down, p1_up} ;
         p2   <=  ~{ start2, p2_buttons[2:0], p2_right, p2_left, p2_down, p2_up} ;
-        
+
         if ( board_rev == 3 ) begin
             // Rev V
-            dsw_m68k <=  {sw[1][7:2], ~key_test, ~key_service};  // IN3 
-            dsw_sp85 <=  {sw[0][7:0] };                          // IN4 
+            dsw_m68k <=  {sw[1][7:2], ~key_test, ~key_service};  // IN3
+            dsw_sp85 <=  {sw[0][7:0] };                          // IN4
         end else begin
             // Rev II & III
-            dsw_m68k <=  {sw[0][7:2], ~key_test, ~key_service};  
-            dsw_sp85 <=  {sw[1][7:0] }; 
+            dsw_m68k <=  {sw[0][7:2], ~key_test, ~key_service};
+            dsw_sp85 <=  {sw[1][7:0] };
         end
     end else begin
         // inverted - active high
         p1   <=  { start1, p1_buttons[2:0], p1_right, p1_left, p1_down, p1_up} ;
         p2   <=  { start2, p2_buttons[2:0], p2_right, p2_left, p2_down, p2_up} ;
-        
+
         if ( board_rev == 3 ) begin
             // Rev V
-            dsw_m68k <=  ~{sw[1][7:2], ~key_test, ~key_service};  
-            dsw_sp85 <=  sw[0][7:0] ;  
+            dsw_m68k <=  ~{sw[1][7:2], ~key_test, ~key_service};
+            dsw_sp85 <=  sw[0][7:0] ;
         end else begin
             // Rev II & III
             // TIMESOLD
-            dsw_m68k <=  ~{sw[0][7:2], ~key_test, ~key_service};  
-            dsw_sp85 <=  sw[1][7:0] ;  
+            dsw_m68k <=  ~{sw[0][7:2], ~key_test, ~key_service};
+            dsw_sp85 <=  sw[1][7:0] ;
         end
     end
-    
+
     if ( board_rev == 0 ) begin
         flip_dip <= dsw_m68k[2] ;
     end else begin
@@ -432,7 +396,7 @@ always @ (posedge clk_sys ) begin
             flip_dip <= ~dsw_sp85[4] ;
         end
     end
-    
+
     if ( pcb == GOLDMEDL ) begin
         coin <=  { 2'b0, coin_b, coin_a, 2'b0, key_test, key_service } ;
     end else begin
@@ -557,7 +521,7 @@ wire pressed = ps2_key[9];
 reg [11:0] key_ls30_p1;
 reg [11:0] key_ls30_p2;
 
-always @(posedge clk_sys) begin 
+always @(posedge clk_sys) begin
     reg old_state;
 
     old_state <= ps2_key[10];
@@ -653,14 +617,14 @@ assign rot2_cw  = p1_swap ? (joy0[12] | key_ls30_p1[0]) : (joy1[12] | key_ls30_p
 assign rot2_ccw = p1_swap ? (joy0[13] | key_ls30_p1[1]) : (joy1[13] | key_ls30_p2[1]);
 
 always @ (posedge clk_sys) begin
-	
+
     if ( reset == 1 ) begin
         rotary1 <= 12'h800 ;
         rotary2 <= 12'h800 ;
     end else begin
         if ( p1_rotary_controller_type == 0 ) begin
             // did the button state change?
-            if ( rot1_cw != last_rot1_cw ) begin 
+            if ( rot1_cw != last_rot1_cw ) begin
                 last_rot1_cw <= rot1_cw;
                 // rotate right
                 if ( rot1_cw == 1 ) begin
@@ -741,8 +705,8 @@ always @ (posedge clk_sys) begin
     end else begin
         clk3_count <= clk3_count + 1;
     end
-    
-    // M=9 / N=181 
+
+    // M=9 / N=181
     clk_4M <= 0;
     if ( clk4_count > 180 ) begin
         clk_4M <= 1;
@@ -750,7 +714,7 @@ always @ (posedge clk_sys) begin
     end else begin
         clk4_count <= clk4_count + 9;
     end
-    
+
     clk_6M <= ( clk6_count == 0 );
 
     if ( clk6_count == 11 ) begin // 11
@@ -772,26 +736,26 @@ always @ (posedge clk_sys) begin
         end else begin
             // 18MHZ
             clk_20M <= ( clk20_count == 0 );
-            if ( clk20_count == 3 ) begin 
+            if ( clk20_count == 3 ) begin
                 clk20_count <= 0;
             end else begin
                 clk20_count <= clk20_count + 1;
             end
         end
     end
-    
+
     clk_io <= ( clk_io_count == 0 ) ;
 
     if ( clk_io_count == 4_666_234 ) begin // 15.4 Hz
         clk_io_count <= 0;
     end else begin
         clk_io_count <= clk_io_count + 1;
-    end    
-    
+    end
+
 end
 
 wire    reset;
-assign  reset = RESET | key_reset | status[0] ; 
+assign  reset = RESET | key_reset | status[0] ;
 
 //////////////////////////////////////////////////////////////////
 wire rotate_ccw = 0;
@@ -838,7 +802,7 @@ wire    pause_cpu;
 wire    hs_pause;
 
 // 8 bits per colour, 72MHz sys clk
-pause #(8,8,8,72) pause 
+pause #(8,8,8,72) pause
 (
     .clk_sys(clk_sys),
     .reset(reset),
@@ -883,7 +847,7 @@ reg [4:0] sprite_state;
 reg [8:0] sprite_num;
 
 reg   [2:0] pri_buf[0:255];
- 
+
 reg  [31:0] pix_data;
 reg  [31:0] spr_pix_data;
 reg  [31:0] spr_pix_data_fifo;
@@ -913,9 +877,9 @@ reg   [3:0] spr_x_ofs;
 reg   [1:0] sprite_layer;
 wire  [1:0] layer_order [3:0] = '{2'd2,2'd3,2'd1,2'd0};
 
-wire  [3:0] spr_pen = { spr_pix_data[24 + { 3 { sprite_flip_x } } ^ spr_x_ofs[2:0]], 
-                        spr_pix_data[16 + { 3 { sprite_flip_x } } ^ spr_x_ofs[2:0]], 
-                        spr_pix_data[ 8 + { 3 { sprite_flip_x } } ^ spr_x_ofs[2:0]], 
+wire  [3:0] spr_pen = { spr_pix_data[24 + { 3 { sprite_flip_x } } ^ spr_x_ofs[2:0]],
+                        spr_pix_data[16 + { 3 { sprite_flip_x } } ^ spr_x_ofs[2:0]],
+                        spr_pix_data[ 8 + { 3 { sprite_flip_x } } ^ spr_x_ofs[2:0]],
                         spr_pix_data[ 0 + { 3 { sprite_flip_x } } ^ spr_x_ofs[2:0]] }  ;
 
 //-- board config 6 bits
@@ -929,7 +893,7 @@ wire  [3:0] spr_pen = { spr_pix_data[24 + { 3 { sprite_flip_x } } ^ spr_x_ofs[2:
 //coin     0 = 0x2222 / 1 = 0x2423
 //invert   0 = input not inverted / 1 = inverted
 
-reg [7:0] config_bits ; // [8:0] = '{ 8'h30, 8'h30, 8'h30, 8'h30, 8'h00, 8'h00, 8'h04, 8'h22 }; 
+reg [7:0] config_bits ; // [8:0] = '{ 8'h30, 8'h30, 8'h30, 8'h30, 8'h00, 8'h00, 8'h04, 8'h22 };
 
 reg   [11:0] sp_count ;
 
@@ -949,13 +913,13 @@ always @ (posedge clk_sys) begin
             x <= 0;
         end else if ( tile_state == 1) begin
             line_buf_fg_w <= 0;
-            fg_ram_addr <= { fg_tile, 1'b0 } ; 
+            fg_ram_addr <= { fg_tile, 1'b0 } ;
             tile_state <= 2;
-        end else if ( tile_state == 2) begin  
-            // address is valid - need more more cycle to read 
+        end else if ( tile_state == 2) begin
+            // address is valid - need more more cycle to read
             fg_ram_addr <= fg_ram_addr + 1;
             tile_state <= 3;
-        end else if ( tile_state == 3) begin  
+        end else if ( tile_state == 3) begin
             // [15:0] fg_rom_addr
             if ( board_rev == 3 ) begin
                 fg_rom_addr <= { tile_bank[2:0], fg_ram_dout[7:0], ~sp_x[2], sp_x[1], sp_y[2:0] } ;
@@ -963,33 +927,33 @@ always @ (posedge clk_sys) begin
                 fg_rom_addr <= { tile_bank[6:4], fg_ram_dout[7:0], ~sp_x[2], sp_y[2:0], 1'b0 } ;
             end
             tile_state <= 4;
-        end else if ( tile_state == 4) begin             
-            // address is valid - need more more cycle to read 
+        end else if ( tile_state == 4) begin
+            // address is valid - need more more cycle to read
             fg_rom_addr <= fg_rom_addr + 1;
             // the colour in the second tile attribute byte
             fg_colour <= fg_ram_dout[4:0] ; // [4] == opaque
             tile_state <= 5;
-        end else if ( tile_state == 5) begin 
-            // version II boards need 16 bits.  
+        end else if ( tile_state == 5) begin
+            // version II boards need 16 bits.
             pix_data[7:0] <= fg_rom_data;
             tile_state <= 6 ;
-        end else if ( tile_state == 6) begin 
+        end else if ( tile_state == 6) begin
             pix_data[15:8] <= fg_rom_data;
             tile_state <= 7 ;
-        end else if ( tile_state == 7) begin 
+        end else if ( tile_state == 7) begin
             line_buf_addr_w <= { vc[0], x[8:0] };
             line_buf_fg_w <= 1;
             if ( board_rev == 3 ) begin
                 case ( sp_x[0] )
-                    0: line_buf_fg_din <= { fg_colour, pix_data[3:0] } ; 
-                    1: line_buf_fg_din <= { fg_colour, pix_data[7:4] } ; 
+                    0: line_buf_fg_din <= { fg_colour, pix_data[3:0] } ;
+                    1: line_buf_fg_din <= { fg_colour, pix_data[7:4] } ;
                 endcase
             end else begin
                 case ( sp_x[1:0] )
-                    0: line_buf_fg_din <= { fg_colour, pix_data[4], pix_data[0], pix_data[12], pix_data[8]  } ; 
-                    1: line_buf_fg_din <= { fg_colour, pix_data[5], pix_data[1], pix_data[13], pix_data[9]  } ; 
-                    2: line_buf_fg_din <= { fg_colour, pix_data[6], pix_data[2], pix_data[14], pix_data[10] } ; 
-                    3: line_buf_fg_din <= { fg_colour, pix_data[7], pix_data[3], pix_data[15], pix_data[11] } ; 
+                    0: line_buf_fg_din <= { fg_colour, pix_data[4], pix_data[0], pix_data[12], pix_data[8]  } ;
+                    1: line_buf_fg_din <= { fg_colour, pix_data[5], pix_data[1], pix_data[13], pix_data[9]  } ;
+                    2: line_buf_fg_din <= { fg_colour, pix_data[6], pix_data[2], pix_data[14], pix_data[10] } ;
+                    3: line_buf_fg_din <= { fg_colour, pix_data[7], pix_data[3], pix_data[15], pix_data[11] } ;
                 endcase
             end
             if ( x < 256 ) begin
@@ -1003,9 +967,9 @@ always @ (posedge clk_sys) begin
             end
         end else if ( tile_state == 8) begin
             x <= 0;
-            tile_state <= 0;  
+            tile_state <= 0;
         end
-        
+
         // sprites. -- need 3 sprite layers - 1 layer is split
         if ( sprite_state == 0 && hc == 0 ) begin
             // init
@@ -1015,7 +979,7 @@ always @ (posedge clk_sys) begin
             // setup clearing line buffer
             spr_buf_din <= 0 ;
             spr_x_pos <= 0;
-        end else if ( sprite_state == 21 )  begin  
+        end else if ( sprite_state == 21 )  begin
             spr_buf_w <= 1 ;
             spr_buf_addr_w <= { vc[0], spr_x_pos };
             if ( spr_x_pos > 256 ) begin
@@ -1023,8 +987,8 @@ always @ (posedge clk_sys) begin
                 sprite_state <= 22;
             end
             spr_x_pos <= spr_x_pos + 1;
-        end else if ( sprite_state == 22 ) begin  
-            // start 
+        end else if ( sprite_state == 22 ) begin
+            // start
             case ( sprite_layer )
                 0: begin
                         sprite_group <= 1;
@@ -1049,11 +1013,11 @@ always @ (posedge clk_sys) begin
             spr_buf_w <= 0 ;
 
             // setup x read
-            sprite_ram_addr <= { sprite_col, 3'b0, sprite_group, 1'b0 } ; 
+            sprite_ram_addr <= { sprite_col, 3'b0, sprite_group, 1'b0 } ;
             sprite_state <= 2;
         end else if ( sprite_state == 2 )  begin
             // setup y read
-            sprite_ram_addr <= sprite_ram_addr + 1 ; 
+            sprite_ram_addr <= sprite_ram_addr + 1 ;
             sprite_state <= 3;
         end else if ( sprite_state == 3 )  begin
             // x valid
@@ -1064,10 +1028,10 @@ always @ (posedge clk_sys) begin
                 sprite_state <= 17;
             end
             // y valid
-            
-            sprite_col_y <= sprite_ram_dout ; 
+
+            sprite_col_y <= sprite_ram_dout ;
             sprite_state <= 18;
-        end else if ( sprite_state == 18 )  begin   
+        end else if ( sprite_state == 18 )  begin
             if ( sprite_layer == 0 ) begin
                 if ( flip_dip == 0 ) begin
                     sprite_col_y <= sprite_col_y - 1 ;
@@ -1084,7 +1048,7 @@ always @ (posedge clk_sys) begin
             // setup sprite tile colour read
             sprite_ram_addr <= { sprite_group[1:0], sprite_col[4:0], sprite_col_idx[8:4], 1'b0 };
             sprite_state <= 7;
-            
+
         end else if ( sprite_state == 7 ) begin
             // setup sprite tile index read
             sprite_ram_addr <= sprite_ram_addr + 1 ;
@@ -1100,27 +1064,27 @@ always @ (posedge clk_sys) begin
         end else if ( sprite_state == 9 ) begin
             // tile index ready
             if ( pcb == SKYADV || pcb == SKYADVU ) begin
-                sprite_flip_x   <= 1'b0;  
+                sprite_flip_x   <= 1'b0;
                 sprite_flip_y   <= sprite_ram_dout[15] ;
-                sprite_tile_num <= sprite_ram_dout[14:0] ; 
+                sprite_tile_num <= sprite_ram_dout[14:0] ;
             end else if (  pcb == GANGWARS ) begin
                 sprite_flip_x   <= sprite_ram_dout[15] ;
                 sprite_flip_y   <= 1'b0;  // 0x8000
                 sprite_tile_num <= sprite_ram_dout[14:0] ;
-            end else begin                
+            end else begin
                 sprite_flip_x   <= sprite_ram_dout[14] ;
                 sprite_flip_y   <= sprite_ram_dout[15] ;
-                sprite_tile_num <= sprite_ram_dout[13:0] ;  
+                sprite_tile_num <= sprite_ram_dout[13:0] ;
             end
             spr_x_ofs <= 0;
             spr_x_pos <= { sprite_col_x[7:0], sprite_col_y[15] } ;
             sprite_state <= 10;
-        end else if ( sprite_state == 10 )  begin    
+        end else if ( sprite_state == 10 )  begin
             case ( sprite_flip_y )
                 1'b0: sprite_rom_addr <= { sprite_tile_num, ~sprite_flip_x,  sprite_col_idx[3:0] } ; // ~(sprite_flip_x^spr_x_ofs[3])
                 1'b1: sprite_rom_addr <= { sprite_tile_num, ~sprite_flip_x, ~sprite_col_idx[3:0] } ;
-            endcase 
-            
+            endcase
+
             sprite_rom_cs <= 1;
             sprite_state <= 11;
         end else if ( sprite_state == 11 ) begin
@@ -1135,21 +1099,21 @@ always @ (posedge clk_sys) begin
             case ( sprite_flip_y )
                 1'b0: sprite_rom_addr <= { sprite_tile_num, sprite_flip_x,  sprite_col_idx[3:0] } ; // ~(sprite_flip_x^spr_x_ofs[3])
                 1'b1: sprite_rom_addr <= { sprite_tile_num, sprite_flip_x, ~sprite_col_idx[3:0] } ;
-            endcase 
+            endcase
 
             sprite_rom_cs <= 1;
-            
+
             sprite_state <= 13;
         end else if ( sprite_state == 13 ) begin
             // if the second read is ready queue the result and release sdram
             if ( sprite_rom_cs == 1 && sprite_rom_valid == 1 ) begin
                 sprite_rom_cs <= 0;
                 spr_pix_data_fifo <= sprite_rom_data;
-                
+
             end else if ( sprite_rom_cs == 0 || spr_x_ofs < 7 ) begin
                 //
                 spr_buf_addr_w <= { vc[0], spr_x_pos };
-                
+
                 spr_buf_w <= (| spr_pen ) ; // don't write if 0 - transparent
 
                 spr_buf_din <= { sprite_colour, spr_pen };
@@ -1157,29 +1121,29 @@ always @ (posedge clk_sys) begin
                 if ( spr_x_ofs < 15 ) begin
                     spr_x_ofs <= spr_x_ofs + 1;
                     spr_x_pos <= spr_x_pos + 1;
-                    
+
                     // the second 8 pixel needs another rom read
                     if ( spr_x_ofs == 7 ) begin
                         spr_pix_data <= spr_pix_data_fifo ;
                     end
-                    
+
                 end else begin
                     sprite_state <= 17;
                 end
             end
-       
-        end else if ( sprite_state == 17) begin             
+
+        end else if ( sprite_state == 17) begin
             spr_buf_w <= 0 ;
             if ( hc < 340 ) begin
                 if ( sprite_col < 30 || (sprite_col < 31 && sprite_layer < 3) ) begin
                     sprite_col <= sprite_col + 1;
-                    sprite_state <= 1; 
+                    sprite_state <= 1;
                 end else begin
                     if ( sprite_layer < 3 ) begin
                         sprite_layer <= sprite_layer + 1;
-                        sprite_state <= 22;  
+                        sprite_state <= 22;
                     end else begin
-                        sprite_state <= 0;  
+                        sprite_state <= 0;
                     end
                 end
             end else begin
@@ -1189,7 +1153,7 @@ always @ (posedge clk_sys) begin
 
     end
 end
-        
+
 reg sprite_overrun;
 
 reg [11:0] fg;
@@ -1209,7 +1173,7 @@ wire [7:0] dac_weight[0:63] = '{8'd0,8'd13,8'd22,8'd34,8'd46,8'd57,8'd65,8'd75,8
                                 8'd0, 8'd7,8'd17,8'd28,8'd41,8'd52,8'd60,8'd71,8'd87,8'd96,8'd103,8'd112,8'd122,8'd130,8'd136,8'd144,
                                 8'd165,8'd172,8'd177,8'd184,8'd191,8'd197,8'd202,8'd208,8'd218,8'd223,8'd227,8'd233,8'd239,8'd244,8'd248,8'd253};
 
-                 
+
 reg [5:0] r_pal ;
 reg [5:0] g_pal ;
 reg [5:0] b_pal ;
@@ -1220,12 +1184,12 @@ always @ (posedge clk_sys) begin
 
     if ( hc < 257 ) begin
         if ( clk6_count == 2 ) begin
-            line_buf_addr_r <= { ~vc[0], 1'b0, hc[7:0] ^ { 8 { flip_dip } } } ; 
+            line_buf_addr_r <= { ~vc[0], 1'b0, hc[7:0] ^ { 8 { flip_dip } } } ;
         end else if ( clk6_count == 3 ) begin
             fg <= line_buf_fg_out[11:0] ;
             sp <= spr_buf_dout[11:0] ;
         end else if ( clk6_count == 4 ) begin
-            pen <= ( { fg[8], fg[3:0] } == 0 ) ? sp[11:0] : { 3'b0, fg[7:0] };  //   fg[8] == 1 means tile is opaque 
+            pen <= ( { fg[8], fg[3:0] } == 0 ) ? sp[11:0] : { 3'b0, fg[7:0] };  //   fg[8] == 1 means tile is opaque
             //pen <= sp[11:0] ;
         end else if ( clk6_count == 5 ) begin
             if ( pen[3:0] == 0 ) begin
@@ -1260,7 +1224,7 @@ reg [1:0] coin_latch;
 // Time Soldiers, Sky Soldiers
 reg [7:0] coin_ratio_a_II [0:7] = '{ 8'h01, 8'h02, 8'h03, 8'h04, 8'h05, 8'h06, 8'h13, 8'h22 };  // (#coins-1) / credits
 reg [7:0] coin_ratio_b_II [0:7] = '{ 8'h01, 8'h11, 8'h21, 8'h31, 8'h41, 8'h51, 8'h61, 8'h71 };  // (#coins-1) / credits
-   
+
 // Sky Adventure
 reg [7:0] coin_ratio_a_V [0:7] = '{ 8'h01, 8'h05, 8'h03, 8'h13, 8'h02, 8'h06, 8'h04, 8'h22 };  // (#coins-1) / credits
 reg [7:0] coin_ratio_b_V [0:7] = '{ 8'h01, 8'h41, 8'h21, 8'h61, 8'h11, 8'h51, 8'h31, 8'h71 };  // (#coins-1) / credits
@@ -1286,25 +1250,25 @@ always @ (posedge clk_sys) begin
 
     if ( reset == 1 ) begin
         m68k_dtack_n <= 1;
-        
+
         m68k_ipl0_n <= 1 ;
         m68k_ipl1_n <= 1 ;
-        
+
         z80_irq_n <= 1 ;
         m68k_latch <= 0;
         tile_bank <= 0;
         frame_count <= 0;
-        
+
         mcu_addr <= 0;
         mcu_din <= 0 ;
         mcu_wh <= 0;
         mcu_wl <= 0;
-                
-        z80_latch <= 0;        
+
+        z80_latch <= 0;
         z80_nmi_n <= 1 ;
         z80_bank <= 0;
         z80_nmi_suppress <= 1; // ym2203 port high impedance on reset?
-        
+
         credits <= 0;
         coin_latch <= 0;
         mcu_2nd_write <= 0;
@@ -1312,21 +1276,21 @@ always @ (posedge clk_sys) begin
         mcu_2nd_wh <= 0;
         mcu_busy <= 0;
     end else begin
-    
-        // vblank handling 
+
+        // vblank handling
         vbl_sr <= { vbl_sr[0], vbl };
         if ( vbl_sr == 2'b01 ) begin // rising edge
             //  68k vbl interrupt
             m68k_ipl0_n <= 0;
             frame_count <= frame_count + 1;
-        end 
+        end
 
-        // mcu interrupt handling 
+        // mcu interrupt handling
         hbl_sr <= { hbl_sr[0], clk_io };  // ????
         if ( hbl_sr == 2'b01 ) begin // rising edge
             //  68k vbl interrupt
             m68k_ipl1_n <= 0;
-        end 
+        end
 
         if ( clk_20M == 1 ) begin
             // cpu acknowledged the interrupt
@@ -1335,17 +1299,17 @@ always @ (posedge clk_sys) begin
                 m68k_ipl0_n <= 1;
                 m68k_ipl1_n <= 1;
             end
-            
+
             mcu_wh <= 0;
             mcu_wl <= 0;
 
             // tell 68k to wait for valid data. 0=ready 1=wait
             // always ack when it's not program rom
-            m68k_dtack_n <= m68k_rom_cs ? !m68k_rom_valid : 
-                            m68k_rom_2_cs ? !m68k_rom_2_valid : 
-                            0; 
-                        
-            if ( m68k_rw == 1 ) begin                          
+            m68k_dtack_n <= m68k_rom_cs ? !m68k_rom_valid :
+                            m68k_rom_2_cs ? !m68k_rom_2_valid :
+                            0;
+
+            if ( m68k_rw == 1 ) begin
                 // reads
                 m68k_din <=  m68k_rom_cs ? m68k_rom_data :
                              m68k_ram_cs  ? m68k_ram_dout :
@@ -1356,12 +1320,12 @@ always @ (posedge clk_sys) begin
                              m68k_pal_cs ? m68k_pal_dout :
                              input_p1_cs ? { p2, p1 } :
                              m68k_dsw_cs ? { rotary1[7:0], dsw_m68k[7:0] } :
-                             m68k_sp85_cs ? 0 : 
+                             m68k_sp85_cs ? 0 :
                              m68k_rotary2_cs ? { rotary2[7:0], 8'h0 } :
                              m68k_rotary_msb_cs ? { rotary2[11:8], rotary1[11:8], 8'h0 } :
                              16'h0000;
-                             
-                // mcu addresses are word 
+
+                // mcu addresses are word
                 if ( m68k_sp85_cs == 1 ) begin
                     if (  mcu_busy == 0 ) begin
                         mcu_busy <= 1;
@@ -1371,24 +1335,24 @@ always @ (posedge clk_sys) begin
                             mcu_din <= dsw_sp85[7:0] ;
                             mcu_wl <= 1;
                         end else if ( m68k_a[8:1] == 8'h22 ) begin
-                        
+
                             mcu_addr <= m68k_a[13:1];
                             mcu_din <= credits ;
                             credits <= 0;
                             mcu_wl <= 1;
                         end else if ( m68k_a[8:1] == 8'h29 ) begin
-                        
+
                             // coins
                             if ( { coin_b, coin_a } == 0 ) begin
                                 coin_latch <= 0;
-                                
+
                                 mcu_addr <= m68k_a[13:1];
                                 mcu_din <= 8'h00 ;
                                 mcu_wl <= 1;
                             end else if ( coin_latch == 0 ) begin
                                 coin_latch <= { coin_b, coin_a };
                                 // set coin id
-                                if ( coin_type == 1 ) begin 
+                                if ( coin_type == 1 ) begin
                                     if ( coin_a == 1 ) begin
                                         mcu_din <= 8'h23 ;
                                     end else begin
@@ -1405,7 +1369,7 @@ always @ (posedge clk_sys) begin
                                         end else begin
                                             coin_count <= coin_count + 1;
                                         end
-                                    end if ( coin_b == 1 ) begin 
+                                    end if ( coin_b == 1 ) begin
                                         if ( coin_ratio_b[7:4] == coin_count ) begin
                                             credits <= coin_ratio_b[3:0];
                                             coin_count <= 0;
@@ -1413,7 +1377,7 @@ always @ (posedge clk_sys) begin
                                             coin_count <= coin_count + 1;
                                         end
                                     end
-                                    
+
                                     // clear for sky adv
                                     mcu_2nd_write <= 1;
                                     mcu_2nd_addr  <= m68k_a[13:1] - 7 ;
@@ -1427,7 +1391,7 @@ always @ (posedge clk_sys) begin
                                 mcu_din <= 8'h00 ;
                                 mcu_wl <= 1;
                             end
-                            
+
                             // if gang wars trigger writing the dip value to ram
                             if ( pcb == GANGWARS ) begin
                                 mcu_2nd_write <= 1;
@@ -1468,9 +1432,9 @@ always @ (posedge clk_sys) begin
                 end else begin
                     mcu_busy <= 0;
                 end
-                
+
                 if ( mcu_wl == 1 && mcu_2nd_write == 1 ) begin
-                    mcu_addr <= mcu_2nd_addr; 
+                    mcu_addr <= mcu_2nd_addr;
                     mcu_din <= mcu_2nd_din ;
                     mcu_wl <= mcu_2nd_wl;
                     mcu_wh <= mcu_2nd_wh;
@@ -1482,38 +1446,38 @@ always @ (posedge clk_sys) begin
 
                 if ( vbl_int_clr_cs == 1 ) begin
                     m68k_ipl0_n <= 1;
-                end 
-                
+                end
+
                 if ( cpu_int_clr_cs == 1 ) begin
                     m68k_ipl1_n <= 1;
-                end 
-                
-            end else begin        
+                end
+
+            end else begin
                 // writes
-            
+
                 if ( m68k_latch_cs == 1 ) begin
                     // text tile banking
                     if ( m68k_uds_n == 0 && board_rev == 3) begin // UDS 0x80000 only Rev V
                         tile_bank <= m68k_dout[11:8] ;
-                    end 
-                    if ( m68k_lds_n == 0 ) begin // LDS 0x80001
-                        m68k_latch <= m68k_dout[7:0]; 
                     end
-                end
-                
-                if ( m68k_lds_n == 0 && m68k_dsw_cs == 1 ) begin // LDS 0xc00xx
-                    if  ( board_rev != 3 ) begin
-                        tile_bank[m68k_a[5:3]] <= m68k_a[6] ;  // 
+                    if ( m68k_lds_n == 0 ) begin // LDS 0x80001
+                        m68k_latch <= m68k_dout[7:0];
                     end
                 end
 
-            end 
+                if ( m68k_lds_n == 0 && m68k_dsw_cs == 1 ) begin // LDS 0xc00xx
+                    if  ( board_rev != 3 ) begin
+                        tile_bank[m68k_a[5:3]] <= m68k_a[6] ;  //
+                    end
+                end
+
+            end
         end
-        
+
         if ( clk_6M == 1 ) begin
 
             z80_wait_n <= 1;
-            
+
             if ( z80_rd_n == 0 ) begin
                 // Z80 READ
                 if ( z80_banked_cs == 1 ) begin
@@ -1528,27 +1492,27 @@ always @ (posedge clk_sys) begin
                     z80_din <= z80_rom_data ;
                 end else if ( z80_latch_cs == 1 ) begin
                     z80_din <= ( kill_laugh == 1 && m68k_latch == 8'h81 ) ? 8'h00 : m68k_latch ;
-                end  
+                end
             end
-           
+
             // WRITE
 
             opn_wr <= 0 ;
-            
+
             // DAC
             if ( z80_dac_cs == 1 ) begin
                 dac <= z80_dout ;
             end
-                
+
             // OPLL YM2413
-            if ( z80_ym2413_cs == 1 ) begin    
+            if ( z80_ym2413_cs == 1 ) begin
                 opll_data  <= z80_dout;
 
                 opll_addr <= z80_addr[0] ;
-            end 
+            end
 
             // OPN YM2203
-            if ( z80_ym2203_cs == 1 ) begin   
+            if ( z80_ym2203_cs == 1 ) begin
                 // write to io port A
                 if ( z80_addr[0] == 0 ) begin
                     io_port_a_wr <= ( z80_dout == 8'h0e );
@@ -1558,27 +1522,27 @@ always @ (posedge clk_sys) begin
                         io_port_a_wr <= 0;
                     end
                 end
-            end 
-            
+            end
+
             if ( z80_latch_clr_cs == 1 ) begin
                 m68k_latch <= 0 ;
-            end  
-            
+            end
+
             if ( z80_bank_set_cs == 1 ) begin
                  z80_bank <= z80_dout[4:0];
             end
-       
+
         end
 
         // ym2203 can disable z80 nmi by writting 1 to bit 0 of portA
         // if enabled, nmi is triggered by falling edge of bit 0 vertical line count
-        // /NMI is negative edge triggered 
-        z80_nmi_n <= (~vc[0]) | z80_nmi_suppress ;        
-        
-    end
-end 
+        // /NMI is negative edge triggered
+        z80_nmi_n <= (~vc[0]) | z80_nmi_suppress ;
 
- 
+    end
+end
+
+
 wire    m68k_rom_cs;
 wire    m68k_rom_2_cs;
 wire    m68k_ram_cs;
@@ -1601,14 +1565,14 @@ wire    m68k_sp85_cs;
 wire    z80_rom_cs;
 wire    z80_ram_cs;
 wire    z80_banked_cs;
-    
+
 wire    z80_latch_cs;
 wire    z80_latch_clr_cs;
 wire    z80_dac_cs;
 wire    z80_ym2413_cs;
 wire    z80_ym2203_cs;
 wire    z80_bank_set_cs;
-  
+
 chip_select cs (
     .clk(clk_sys),
     .pcb(pcb),
@@ -1623,9 +1587,9 @@ chip_select cs (
     .IORQ_n,
     .RD_n( z80_rd_n ),
     .WR_n( z80_wr_n ),
-    
+
     .M1_n,
-    
+
     // 68k chip selects
     .m68k_rom_cs,
     .m68k_rom_2_cs,
@@ -1647,22 +1611,22 @@ chip_select cs (
     .watchdog_clr_cs,
 
     .m68k_latch_cs, // write commands to z80 from 68k
-    
-    // z80 
+
+    // z80
 
     .z80_rom_cs,
     .z80_ram_cs,
-    .z80_banked_cs, 
-    
+    .z80_banked_cs,
+
     .z80_latch_cs,
     .z80_latch_clr_cs,
     .z80_dac_cs,
     .z80_ym2413_cs,
     .z80_ym2203_cs,
-    .z80_bank_set_cs 
+    .z80_bank_set_cs
 
 );
- 
+
 reg [7:0]  z80_latch;
 reg [7:0]  m68k_latch;
 
@@ -1671,7 +1635,7 @@ wire m68k_rw         ;    // Read = 1, Write = 0
 wire m68k_as_n       ;    // Address strobe
 wire m68k_lds_n      ;    // Lower byte strobe
 wire m68k_uds_n      ;    // Upper byte strobe
-wire m68k_E;         
+wire m68k_E;
 wire [2:0] m68k_fc    ;   // Processor state
 wire m68k_reset_n_o  ;    // Reset output signal
 wire m68k_halted_n   ;    // Halt output
@@ -1679,7 +1643,7 @@ wire m68k_halted_n   ;    // Halt output
 // CPU busses
 wire [15:0] m68k_dout       ;
 wire [23:0] m68k_a   /* synthesis keep */       ;
-reg  [15:0] m68k_din        ;   
+reg  [15:0] m68k_din        ;
 //assign m68k_a[0] = 1'b0;
 
 // CPU inputs
@@ -1731,12 +1695,12 @@ fx68k fx68k (
     .oHALTEDn(m68k_halted_n),
 
     // input
-    .VPAn( m68k_vpa_n ),  
-    .DTACKn( m68k_dtack_n ),     
-    .BERRn(1'b1), 
-    .BRn(1'b1),  
+    .VPAn( m68k_vpa_n ),
+    .DTACKn( m68k_dtack_n ),
+    .BERRn(1'b1),
+    .BRn(1'b1),
     .BGACKn(1'b1),
-    
+
     .IPL0n(m68k_ipl0_n),
     .IPL1n(m68k_ipl1_n),
     .IPL2n(1'b1),
@@ -1748,7 +1712,7 @@ fx68k fx68k (
 );
 
 
-// z80 audio 
+// z80 audio
 wire    [7:0] z80_rom_data;
 wire    [7:0] z80_rom_2_data;
 wire    [7:0] z80_banked_data;
@@ -1775,7 +1739,7 @@ T80pa z80 (
     .CEN_p      ( clk_6M ),
     .CEN_n      ( ~clk_6M ),
     .WAIT_n     ( z80_wait_n ), // z80_wait_n
-    .INT_n      ( 1'b1 ),  
+    .INT_n      ( 1'b1 ),
     .NMI_n      ( z80_nmi_n ),
     .BUSRQ_n    ( 1'b1 ),
     .RD_n       ( z80_rd_n ),
@@ -1823,7 +1787,7 @@ wire opn_sample_clk;
 jt2413 ym2413 (
     .rst(reset),
     .clk(clk_sys),
-    .cen(clk_4M), 
+    .cen(clk_4M),
     .din( z80_dout ),
     .addr( z80_addr[0] ),
     .cs_n(~z80_ym2413_cs),
@@ -1851,7 +1815,7 @@ jt03 ym2203 (
     .din( ym2203_din ),
     .addr( ym2203addr ),
     .cs_n( ym2203we ),
-    .wr_n( ym2203we ), 
+    .wr_n( ym2203we ),
 
     .snd(opn_sample)
 );
@@ -1875,39 +1839,39 @@ wire [15:0] m68k_ram_dout;
 wire [15:0] m68k_sprite_dout;
 wire [15:0] m68k_pal_dout;
 
-// ioctl download addressing    
+// ioctl download addressing
 wire rom_download = ioctl_download && (ioctl_index==0);
 
 wire fg_ioctl_wr    = rom_download & ioctl_wr & (ioctl_addr >= 24'h100000) & (ioctl_addr < 24'h110000) ;
 wire z80_ioctl_wr   = rom_download & ioctl_wr & (ioctl_addr >= 24'h080000) & (ioctl_addr < 24'h088000) ;
 wire z80_ioctl_2_wr = rom_download & ioctl_wr & (ioctl_addr >= 24'h088000) & (ioctl_addr < 24'h090000) ;
 
-// main 68k ram high    
+// main 68k ram high
 dual_port_ram #(.LEN(8192)) ram8kx8_H (
     .clock_a ( clk_20M ),
     .address_a ( m68k_a[13:1] ),
     .wren_a ( !m68k_rw & m68k_ram_cs & !m68k_uds_n ),
     .data_a ( m68k_dout[15:8]  ),
     .q_a (  m68k_ram_dout[15:8] ),
-    
+
     .clock_b ( clk_sys ),
-    .address_b ( mcu_addr ),  
+    .address_b ( mcu_addr ),
     .wren_b ( mcu_wh ),
     .data_b ( mcu_din ),
     .q_b( mcu_dout )
 
     );
 
-// main 68k ram low     
+// main 68k ram low
 dual_port_ram #(.LEN(8192)) ram8kx8_L (
     .clock_a ( clk_20M ),
     .address_a ( m68k_a[13:1] ),
     .wren_a ( !m68k_rw & m68k_ram_cs & !m68k_lds_n ),
     .data_a ( m68k_dout[7:0]  ),
     .q_a ( m68k_ram_dout[7:0] ),
-    
+
     .clock_b ( clk_sys ),
-    .address_b ( mcu_addr ),  
+    .address_b ( mcu_addr ),
     .wren_b ( mcu_wl ),
     .data_b ( mcu_din ),
     .q_b( mcu_dout )
@@ -1916,7 +1880,7 @@ dual_port_ram #(.LEN(8192)) ram8kx8_L (
 reg  [13:0] sprite_ram_addr;
 wire [15:0] sprite_ram_dout /* synthesis keep */;
 
-// main 68k sprite ram high  
+// main 68k sprite ram high
 // 2kx16
 dual_port_ram #(.LEN(16384)) sprite_ram_H (
     .clock_a ( clk_20M ),
@@ -1926,28 +1890,28 @@ dual_port_ram #(.LEN(16384)) sprite_ram_H (
     .q_a (  m68k_sprite_dout[15:8] ),
 
     .clock_b ( clk_sys ),
-    .address_b ( sprite_ram_addr ),  
+    .address_b ( sprite_ram_addr ),
     .wren_b ( 1'b0 ),
     .data_b ( ),
     .q_b( sprite_ram_dout[15:8] )
     );
 
-// main 68k sprite ram low     
+// main 68k sprite ram low
 dual_port_ram #(.LEN(16384)) sprite_ram_L (
     .clock_a ( clk_20M ),
     .address_a ( m68k_a[14:1] ),
     .wren_a ( !m68k_rw & m68k_spr_cs & !m68k_lds_n ),
     .data_a ( m68k_dout[7:0]  ),
     .q_a ( m68k_sprite_dout[7:0] ),
-     
+
     .clock_b ( clk_sys ),
-    .address_b ( sprite_ram_addr ),  
+    .address_b ( sprite_ram_addr ),
     .wren_b ( 1'b0 ),
     .data_b ( ),
     .q_b( sprite_ram_dout[7:0] )
     );
 
-   
+
 wire [10:0] fg_ram_addr /* synthesis keep */;
 wire [15:0] fg_ram_dout /* synthesis keep */;
 
@@ -1956,20 +1920,20 @@ wire [15:0] m68k_fg_ram_dout;
 wire fg_u_w = !m68k_rw & m68k_fg_ram_cs & !m68k_uds_n ;
 wire fg_l_w = !m68k_rw & m68k_fg_ram_cs & !m68k_lds_n ;
 
-//// foreground high   
+//// foreground high
 //dual_port_ram #(.LEN(2048)) ram_fg_h (
 //    .clock_a ( clk_20M ),
 //    .address_a ( m68k_a[11:1] ),
-//    .wren_a ( fg_u_w ), 
+//    .wren_a ( fg_u_w ),
 //    .data_a ( m68k_dout[15:8]  ),
 //    .q_a ( m68k_fg_ram_dout[15:8] ),
 //
 //    .clock_b ( clk_sys ),
-//    .address_b ( fg_ram_addr ),  
+//    .address_b ( fg_ram_addr ),
 //    .wren_b ( 1'b0 ),
 //    .data_b ( ),
 //    .q_b( fg_ram_dout[15:8] )
-//    
+//
 //    );
 
 // foreground low
@@ -1979,21 +1943,21 @@ dual_port_ram #(.LEN(2048)) ram_fg_l (
     .wren_a ( fg_l_w | fg_u_w ),
     .data_a ( m68k_dout[7:0] ),
     .q_a ( m68k_fg_ram_dout[7:0] ),
-     
+
     .clock_b ( clk_sys ),
-    .address_b ( fg_ram_addr ),  
+    .address_b ( fg_ram_addr ),
     .wren_b ( 1'b0 ),
     .data_b ( ),
     .q_b( fg_ram_dout[7:0] )
     );
-    
-    
+
+
 reg tile_pal_wr;
 reg  [11:0] tile_pal_addr;
 wire [15:0] tile_pal_dout;
 
-    
-// tile palette high   
+
+// tile palette high
 dual_port_ram #(.LEN(4096)) tile_pal_h (
     .clock_a ( clk_20M ),
     .address_a ( m68k_a[12:1] ),
@@ -2002,7 +1966,7 @@ dual_port_ram #(.LEN(4096)) tile_pal_h (
     .q_a ( m68k_pal_dout[15:8]  ),
 
     .clock_b ( clk_sys ),
-    .address_b ( tile_pal_addr ),  
+    .address_b ( tile_pal_addr ),
     .wren_b ( tile_pal_wr ),
     .data_b ( 8'd0 ),
     .q_b( tile_pal_dout[15:8] )
@@ -2015,18 +1979,18 @@ dual_port_ram #(.LEN(4096)) tile_pal_l (
     .wren_a ( !m68k_rw & m68k_pal_cs & !m68k_lds_n ),
     .data_a ( m68k_dout[7:0]  ),
     .q_a ( m68k_pal_dout[7:0] ),
-     
+
     .clock_b ( clk_sys ),
-    .address_b ( tile_pal_addr ),  
+    .address_b ( tile_pal_addr ),
     .wren_b ( tile_pal_wr ),
     .data_b ( 8'd0 ),
     .q_b( tile_pal_dout[7:0] )
-    );    
-    
+    );
+
 //z80 program rom
 reg   [4:0] z80_bank;
-wire [18:0] z80_rom_addr = { z80_bank[4:0], z80_addr[13:0] }; // ( z80_rom_cs == 1 )    ? { 4'b0, z80_addr[14], z80_addr[13:0] } : 
-//                            ( z80_banked_cs == 1 ) ? {      z80_bank[4:0], z80_addr[13:0] } : 
+wire [18:0] z80_rom_addr = { z80_bank[4:0], z80_addr[13:0] }; // ( z80_rom_cs == 1 )    ? { 4'b0, z80_addr[14], z80_addr[13:0] } :
+//                            ( z80_banked_cs == 1 ) ? {      z80_bank[4:0], z80_addr[13:0] } :
 //                            0;
 
 //always @ * begin
@@ -2036,62 +2000,62 @@ wire [18:0] z80_rom_addr = { z80_bank[4:0], z80_addr[13:0] }; // ( z80_rom_cs ==
 //    endcase
 //end
 
-// sky adventure 
+// sky adventure
 dual_port_ram #(.LEN(32768)) z80_rom (
     .clock_a ( clk_6M ),
-    .address_a ( z80_addr[14:0] ),   
+    .address_a ( z80_addr[14:0] ),
     .wren_a ( 1'b0 ),
     .data_a ( ),
     .q_a ( z80_rom_data[7:0] ),
-    
+
     .clock_b ( clk_sys ),
     .address_b ( ioctl_addr[14:0] ),
     .wren_b ( z80_ioctl_wr ),
     .data_b ( ioctl_dout  ),
     .q_b( )
     );
-    
+
 dual_port_ram #(.LEN(32768)) z80_rom_bank2 (
     .clock_a ( clk_6M ),
-    .address_a ( z80_addr[14:0] ),   
+    .address_a ( z80_addr[14:0] ),
     .wren_a ( 1'b0 ),
     .data_a ( ),
     .q_a ( z80_rom_2_data[7:0] ),
-    
+
     .clock_b ( clk_sys ),
     .address_b ( ioctl_addr[14:0] ),
     .wren_b ( z80_ioctl_2_wr ),
     .data_b ( ioctl_dout  ),
     .q_b( )
     );
-    
-// z80 ram 
+
+// z80 ram
 dual_port_ram #(.LEN(2048)) z80_ram (
-    .clock_b ( clk_6M ), 
+    .clock_b ( clk_6M ),
     .address_b ( z80_addr[10:0] ),
     .wren_b ( z80_ram_cs & ~z80_wr_n ),
     .data_b ( z80_dout ),
     .q_b ( z80_ram_data )
     );
-    
+
 //reg [16:0] upd_addr ;
 //wire [7:0] upd_dout ;
 
-//adpcm sample rom    
+//adpcm sample rom
 //dual_port_ram #(.LEN(131072)) upd_rom (
 //    .clock_a ( clk_sys ),
 //    .address_a ( upd_addr[16:0] ),
 //    .wren_a ( 1'b0 ),
 //    .data_a ( ),
 //    .q_a ( upd_dout[7:0] ),
-//    
+//
 //    .clock_b ( clk_sys ),
 //    .address_b ( ioctl_addr[16:0] ),
 //    .wren_b ( upd_ioctl_wr ),
 //    .data_b ( ioctl_dout  ),
 //    .q_b( )
 //    );
-    
+
 wire [15:0] spr_pal_dout ;
 wire [15:0] m68k_spr_pal_dout ;
 
@@ -2106,7 +2070,7 @@ dual_port_ram #(.LEN(512), .DATA_WIDTH(64)) sprite_buffer (
     .wren_a ( 1'b0 ),
     .data_a ( ),
     .q_a ( sprite_buffer_dout ),
-    
+
     .clock_b ( clk_sys ),
     .address_b ( sprite_buffer_addr ),
     .wren_b ( sprite_buffer_w ),
@@ -2114,10 +2078,10 @@ dual_port_ram #(.LEN(512), .DATA_WIDTH(64)) sprite_buffer (
     .q_b( )
 
     );
-    
+
 reg          line_buf_fg_w;
 reg   [9:0]  line_buf_addr_w;
-reg   [9:0]  line_buf_addr_r ; 
+reg   [9:0]  line_buf_addr_r ;
 
 reg  [15:0]  line_buf_fg_din;
 wire [15:0]  line_buf_fg_out;
@@ -2126,7 +2090,7 @@ reg   [9:0]  spr_buf_addr_w;
 reg          spr_buf_w;
 reg  [15:0]  spr_buf_din;
 wire [15:0]  spr_buf_dout;
-    
+
 dual_port_ram #(.LEN(1024), .DATA_WIDTH(16)) spr_buffer_ram (
     .clock_a ( clk_sys ),
     .address_a ( spr_buf_addr_w ),
@@ -2135,11 +2099,11 @@ dual_port_ram #(.LEN(1024), .DATA_WIDTH(16)) spr_buffer_ram (
     .q_a (  ),
 
     .clock_b ( clk_sys ),
-    .address_b ( line_buf_addr_r ), 
+    .address_b ( line_buf_addr_r ),
     .wren_b ( 0 ),
     .q_b ( spr_buf_dout )
-    ); 
-    
+    );
+
 // two line buffer
 dual_port_ram #(.LEN(1024), .DATA_WIDTH(16)) line_buffer_ram_fg (
     .clock_a ( clk_sys ),
@@ -2149,14 +2113,14 @@ dual_port_ram #(.LEN(1024), .DATA_WIDTH(16)) line_buffer_ram_fg (
     .q_a ( ),
 
     .clock_b ( clk_sys ),
-    .address_b ( line_buf_addr_r ),  
+    .address_b ( line_buf_addr_r ),
     .wren_b ( 0 ),
     .q_b ( line_buf_fg_out )
-    );    
+    );
 
 
 wire z80_banked_valid;
-   
+
 wire [15:0] m68k_rom_data;
 wire        m68k_rom_valid;
 
@@ -2197,22 +2161,22 @@ dual_port_ram #(.LEN(65536)) fg_rom (
     .wren_a ( 1'b0 ),
     .data_a ( ),
     .q_a ( fg_rom_data ),
-    
+
     .clock_b ( clk_sys ),
     .address_b ( ioctl_addr[15:0] ),
     .wren_b ( fg_ioctl_wr ),
     .data_b ( ioctl_dout  ),
     .q_b( )
-    );   
-   
-wire        prog_cache_rom_cs;    
+    );
+
+wire        prog_cache_rom_cs;
 wire [15:0] prog_cache_data;
-wire        prog_cache_valid;    
+wire        prog_cache_valid;
 wire [23:1] prog_cache_addr;
 
-wire        sound_cache_rom_cs;    
+wire        sound_cache_rom_cs;
 wire [7:0]  sound_cache_data;
-wire        sound_cache_valid;    
+wire        sound_cache_valid;
 wire [23:1] sound_cache_addr;
 
 reg  [39:0] global_count;
@@ -2233,11 +2197,11 @@ always @ (posedge clk_sys) begin
         rom_2_count <= 0;
         sprite_count <= 0;
         sound_count <= 0;
-        
+
         rom_count_en <= 0;
         rom_2_count_en <= 0;
         sprite_count_en <= 0;
-        sound_count_en <= 0;        
+        sound_count_en <= 0;
     end else begin
         if ( vbl == 1 ) begin
             global_count <= 0;
@@ -2266,12 +2230,12 @@ always @ (posedge clk_sys) begin
             sound_count_en <= ( sound_count_en | z80_banked_cs ) & ~z80_banked_valid;
             if ( sound_count_en == 1 ) begin
                 sound_count <= sound_count + 1;
-            end        
+            end
         end
     end
 end
 
-rom_controller rom_controller 
+rom_controller rom_controller
 (
     .reset(reset),
 
@@ -2303,19 +2267,19 @@ rom_controller rom_controller
     .sprite_rom_addr(sprite_rom_addr),
     .sprite_rom_data(sprite_rom_data),
     .sprite_rom_data_valid(sprite_rom_valid),
-    
+
 //    .sprite_rom_cs(sprite_cache_cs),
 //    .sprite_rom_oe(1),
 //    .sprite_rom_addr(sprite_cache_addr),
 //    .sprite_rom_data(sprite_cache_data),
 //    .sprite_rom_data_valid(sprite_cache_valid),
-    
+
     // sound ROM interface
 //    .sound_rom_cs(z80_banked_cs),
 //    .sound_rom_oe(1),
 //    .sound_rom_addr(z80_rom_addr),
 //    .sound_rom_data(z80_banked_data),
-//    .sound_rom_data_valid(z80_banked_valid),   
+//    .sound_rom_data_valid(z80_banked_valid),
 
     // to rom controller
     .sound_rom_cs(sound_cache_rom_cs),
@@ -2357,7 +2321,7 @@ rom_controller rom_controller
 //    .rom_addr(prog_cache_addr),
 //    .rom_valid(prog_cache_valid),
 //    .rom_data(prog_cache_data)
-//); 
+//);
 
 //tile_cache tile_cache
 //(
@@ -2376,7 +2340,7 @@ rom_controller rom_controller
 //    .rom_data(sprite_cache_data),
 //    .rom_valid(sprite_cache_valid)
 //
-//); 
+//);
 
 sound_cache sound_cache
 (
@@ -2395,7 +2359,7 @@ sound_cache sound_cache
     .rom_data(sound_cache_data),
     .rom_valid(sound_cache_valid)
 
-); 
+);
 
 
 reg  [22:0] sdram_addr;
@@ -2417,7 +2381,7 @@ sdram #(.CLK_FREQ( (CLKSYS+0.0))) sdram
   .data(sdram_data),
   .we(sdram_we),
   .req(sdram_req),
-  
+
   .ack(sdram_ack),
   .valid(sdram_valid),
   .q(sdram_q),
@@ -2433,7 +2397,7 @@ sdram #(.CLK_FREQ( (CLKSYS+0.0))) sdram
   .sdram_we_n(SDRAM_nWE),
   .sdram_dqml(SDRAM_DQML),
   .sdram_dqmh(SDRAM_DQMH)
-);    
+);
 
 endmodule
 
@@ -2447,7 +2411,7 @@ module delay
 
 reg [5:0] r;
 
-assign o = r[0]; 
+assign o = r[0];
 
 always @(posedge clk) begin
     if ( clk_en == 1 ) begin
