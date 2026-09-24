@@ -1,6 +1,7 @@
 <misterromdescription>
     <name>Super Champion Baseball (US)</name>
     <setname>sbasebal</setname>
+    <mameversion>0289</mameversion>
     <rbf>Alpha68k</rbf>
     <year>1989</year>
     <manufacturer>Alpha Denshi Co. (SNK of America license)</manufacturer>
