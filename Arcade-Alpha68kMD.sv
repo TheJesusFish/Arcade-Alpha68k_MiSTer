@@ -54,8 +54,9 @@ wire        hold68, holdz80, holdsnd;
 wire [211:0] z80_reg;
 wire        ss_hold68, ss_holdz80, ss_z80_run, ss_holdsnd, ss_cpu_execute, ss_irq, ss_reset68, ss_resetz80, ss_dirset, ss_mute, ss_active;
 wire        ss_ovr_rd, ss_misc_wr;
+wire        mcu_ready;
 wire [15:0] ss_ovr_data;
-wire [79:0] ss_misc_out;
+wire [111:0] ss_misc_out;
 wire [211:0] ss_dir;
 wire        ss_aux_en;
 wire  [2:0] ss_aux_sel;
@@ -633,11 +634,11 @@ localparam  CLKSYS=72;
 
 reg [15:0] clk20_count;
 reg  [5:0] clk6_count;
-reg  [7:0] clk4_count;
+reg  [9:0] clk4_count;
 reg  [5:0] clk3_count;
 reg [15:0] clk_upd_count;
 
-reg [16:0] clk_io_count;
+reg [22:0] clk_io_count;
 
 reg [15:0] frame_count;
 
@@ -652,13 +653,13 @@ always @ (posedge clk_sys) begin
         clk3_count <= clk3_count + 1;
     end
 
-    // M=9 / N=181
+    // YM2413 enable: 72 MHz * 35 / 704 = 3.579545 MHz
     clk_4M <= 0;
-    if ( clk4_count > 180 ) begin
+    if ( clk4_count >= 10'd669 ) begin
         clk_4M <= 1;
-        clk4_count <= clk4_count - 171;
+        clk4_count <= clk4_count - 10'd669;
     end else begin
-        clk4_count <= clk4_count + 9;
+        clk4_count <= clk4_count + 10'd35;
     end
 
     clk_6M <= ( clk6_count == 0 );
@@ -692,18 +693,6 @@ always @ (posedge clk_sys) begin
         end
     end
 
-    if ( !holdz80 ) begin
-        clk_io <= ( clk_io_count == 0 ) ;
-
-        if ( clk_io_count == 4_666_234 ) begin // 15.4 Hz
-            clk_io_count <= 0;
-        end else begin
-            clk_io_count <= clk_io_count + 1;
-        end
-    end else begin
-        clk_io <= 0;
-    end
-
 end
 
 wire    rom_download = ioctl_download && (ioctl_index==0);
@@ -724,6 +713,28 @@ assign  reset = RESET | key_reset | status[0] | rom_download | rom_dip_wait ;
 assign  hold68  = ( pause_cpu | ss_hold68 | hs_hold68 ) & ~ss_cpu_execute;
 assign  holdz80 = ( pause_cpu & ~ss_z80_run ) | ss_holdz80;
 assign  holdsnd = pause_cpu | ss_holdsnd;
+
+// MCU interrupt period from the PCB captures: V board (Gang Wars SP85N) 15.46 Hz, II board (Sky Soldiers 8511) 9.89 Hz
+wire [22:0] clk_io_last = ( board_rev == 3 ) ? 23'd4_656_287 : 23'd7_282_175;
+
+always @ (posedge clk_sys) begin
+    if ( reset ) begin
+        clk_io <= 0;
+        clk_io_count <= 0;
+    end else if ( ss_misc_wr ) begin
+        clk_io <= 0;
+        clk_io_count <= ss_misc_out[94:72];
+    end else if ( !holdz80 ) begin
+        clk_io <= ( clk_io_count == clk_io_last );
+        if ( clk_io_count >= clk_io_last ) begin
+            clk_io_count <= 0;
+        end else begin
+            clk_io_count <= clk_io_count + 1'd1;
+        end
+    end else begin
+        clk_io <= 0;
+    end
+end
 
 //////////////////////////////////////////////////////////////////
 assign vert_game = ( pcb == SKYADV ) || ( pcb == SKYADVU ) || ( pcb == SKYSOLDR ) || ( pcb == TIMESOLD ) || ( pcb == BATFIELD );
@@ -1229,6 +1240,11 @@ reg [1:0] hbl_sr;
 reg [7:0] credits;
 reg [3:0] coin_count;
 reg [1:0] coin_latch;
+reg [1:0] coin_prev;
+reg [1:0] coin_pend;
+
+// coin inputs seen by the MCU query: held level or a press since the last query
+wire [1:0] coin_in = { coin_b, coin_a } | coin_pend;
 
 // Coin tables for games with MCU id 2222
 
@@ -1282,11 +1298,17 @@ always @ (posedge clk_sys) begin
 
         credits <= 0;
         coin_latch <= 0;
+        coin_prev <= { coin_b, coin_a };
+        coin_pend <= 0;
         mcu_2nd_write <= 0;
         mcu_2nd_wl <= 0;
         mcu_2nd_wh <= 0;
         mcu_busy <= 0;
     end else begin
+
+        // latch coin presses between MCU queries
+        coin_prev <= { coin_b, coin_a };
+        coin_pend <= coin_pend | ( { coin_b, coin_a } & ~coin_prev );
 
         // vblank handling
         vbl_sr <= { vbl_sr[0], vbl };
@@ -1318,6 +1340,7 @@ always @ (posedge clk_sys) begin
             // always ack when it's not program rom
             m68k_dtack_n <= m68k_rom_cs ? !m68k_rom_valid :
                             m68k_rom_2_cs ? !m68k_rom_2_valid :
+                            m68k_sp85_cs ? !mcu_ready :
                             0;
 
             if ( m68k_rw == 1 ) begin
@@ -1355,17 +1378,18 @@ always @ (posedge clk_sys) begin
                         end else if ( m68k_a[8:1] == 8'h29 ) begin
 
                             // coins
-                            if ( { coin_b, coin_a } == 0 ) begin
+                            coin_pend <= { coin_b, coin_a } & ~coin_prev;
+                            if ( coin_in == 0 ) begin
                                 coin_latch <= 0;
 
                                 mcu_addr <= m68k_a[13:1];
                                 mcu_din <= 8'h00 ;
                                 mcu_wl <= 1;
                             end else if ( coin_latch == 0 ) begin
-                                coin_latch <= { coin_b, coin_a };
+                                coin_latch <= coin_in;
                                 // set coin id
                                 if ( coin_type == 1 ) begin
-                                    if ( coin_a == 1 ) begin
+                                    if ( coin_in[0] == 1 ) begin
                                         mcu_din <= 8'h23 ;
                                     end else begin
                                         mcu_din <= 8'h24 ;
@@ -1373,7 +1397,7 @@ always @ (posedge clk_sys) begin
                                 end else begin
                                     mcu_din <= 8'h22 ;
                                     // only games with coin id 22 needs a coin counter
-                                    if ( coin_a == 1 ) begin
+                                    if ( coin_in[0] == 1 ) begin
                                         // calc before or after invert?
                                         if ( coin_ratio_a[7:4] == coin_count ) begin
                                             credits <= coin_ratio_a[3:0];
@@ -1381,7 +1405,7 @@ always @ (posedge clk_sys) begin
                                         end else begin
                                             coin_count <= coin_count + 1;
                                         end
-                                    end if ( coin_b == 1 ) begin
+                                    end if ( coin_in[1] == 1 ) begin
                                         if ( coin_ratio_b[7:4] == coin_count ) begin
                                             credits <= coin_ratio_b[3:0];
                                             coin_count <= 0;
@@ -1565,14 +1589,15 @@ always @ (posedge clk_sys) begin
             dac              <= ss_misc_out[45:38];
             m68k_ipl0_n      <= ss_misc_out[46];
             m68k_ipl1_n      <= ss_misc_out[47];
+            coin_pend        <= ss_misc_out[96:95];
         end
 
     end
 end
 
-// core registers in the save state (80 bits)
-wire [79:0] ss_misc_in = { 8'd0, rotary2, rotary1, m68k_ipl1_n, m68k_ipl0_n, dac, mcu_busy, coin_count, coin_latch, credits,
-                           io_port_a_wr, z80_nmi_suppress, z80_bank, tile_bank, m68k_latch };
+// core registers in the save state (112 bits)
+wire [111:0] ss_misc_in = { 15'd0, coin_pend, clk_io_count, rotary2, rotary1, m68k_ipl1_n, m68k_ipl0_n, dac, mcu_busy, coin_count,
+                            coin_latch, credits, io_port_a_wr, z80_nmi_suppress, z80_bank, tile_bank, m68k_latch };
 
 
 wire    m68k_rom_cs;
@@ -1659,6 +1684,20 @@ chip_select cs (
 
 );
 
+// MCU service time from the PCB captures: DTACK held 94.7 us (SP85N query) / 99.5 us (8511 mean) per access
+wire [12:0] mcu_wait_last = ( board_rev == 3 ) ? 13'd6817 : 13'd7163;
+reg  [12:0] mcu_wait;
+
+always @ (posedge clk_sys) begin
+    if ( reset || !m68k_sp85_cs ) begin
+        mcu_wait <= 0;
+    end else if ( mcu_wait != mcu_wait_last ) begin
+        mcu_wait <= mcu_wait + 1'd1;
+    end
+end
+
+assign mcu_ready = ( mcu_wait == mcu_wait_last );
+
 reg [7:0]  z80_latch;
 reg [7:0]  m68k_latch;
 
@@ -1690,7 +1729,8 @@ wire m68k_reset_ce = ( reset | ss_reset68 ) & ce_20m;
 wire m68k_ipl0_cpu = m68k_ipl0_n & ~( vbl_sr == 2'b01 );
 wire m68k_ipl1_cpu = m68k_ipl1_n & ~( hbl_sr == 2'b01 );
 
-wire m68k_vpa_n = ~(m68k_a[22] & ~(m68k_uds_n & m68k_lds_n)) ;   //~int_ack
+// VPA for $500000-$7FFFFF and interrupt acknowledge only (74LS138 Y5-Y7), not the palette at $400000
+wire m68k_vpa_n = ~(m68k_a[22] & (m68k_a[21] | m68k_a[20]) & ~(m68k_uds_n & m68k_lds_n)) ;
 wire m68k_e ;
 
 reg int_ack ;

@@ -3,7 +3,7 @@
 
 FPGA compatible core of Alpha Denshi M68000 (ALPHA68K96V based) arcade hardware for [**MiSTerFPGA**](https://github.com/MiSTer-devel/Main_MiSTer/wiki) written by **Erin Olafson**.
 
-**Alpha68kMD** is a modernised build of this core: current MiSTer framework, upstream copies of every CPU and sound module, all logic on the system clock with clock enables, save states, high score saving, per-controller Start/Coin, MAME DIP switch definitions and vertical games starting in vertical orientation. The emulation (CPU, interrupt, video and sound timing measured on the PCBs) is unchanged. RBF `Arcade-Alpha68kMD_YYYYMMDD.rbf`, MRAs `<Game> [MD].mra`.
+**Alpha68kMD** is a modernised build of this core: current MiSTer framework, upstream copies of every CPU and sound module, all logic on the system clock with clock enables, save states, high score saving, per-controller Start/Coin, MAME DIP switch definitions and vertical games starting in vertical orientation. The emulation (CPU, interrupt, video and sound timing measured on the PCBs) is unchanged, except that the MCU interrupt, the MCU access wait and the YM2413 clock now follow the PCB measurements, and the 68000's VPA is decoded as on the PCB schematic (see [**SP85 / ALPHA-8511 / ALPHA-8411 Handling**](#sp85--alpha-8511--alpha-8411-handling)). RBF `Arcade-Alpha68kMD_YYYYMMDD.rbf`, MRAs `<Game> [MD].mra`.
 
 FPGA implementation has been verified against schematics for Sky Adventure. PCB measurements taken from Gang Wars (ALPHA-68K96V) and Sky Soldiers (ALPHA-96KII).
 
@@ -61,7 +61,7 @@ The save-state controller (`rtl/alpha68k_ss.sv`) and the high score module (`rtl
 - ~~Verify clocks on ALPHA-68K96II hardware; MAME is incorrect~~ [Task]  <br><br>
 - ~~Options removed currently until stability is checked, may be tied to RESET line~~ [Issue]  
 - Super Champion Baseball (sbasebal) freezes due to MCU ROM code (no dump) [Issue]  
-- Super Champion Baseball occasionally boots into its HARD DEBUGGER screen ("PALETTE RAM 0 BAD"), also with earlier releases; reload the game [Issue]  
+- ~~Super Champion Baseball occasionally boots into its HARD DEBUGGER screen ("PALETTE RAM 0 BAD") and Gang Wars into its HARD CHECK screen (PALETTE BAD)~~ Fixed in Alpha68kMD: the 68000's VPA was decoded for the palette RAM, unlike the PCB [Issue]  
 - Awaiting Gold Medalist PCB to verify and release; submit new ROM dump for bad ROMs [Issue]  
 
 # PCB Check List
@@ -129,14 +129,17 @@ ALPHA-8921                       | ALPHA-68K96V (GW)                            
 The SP85N or ALPHA-8511/8411 utilized on Alpha Denshi M68000 hardware for I/O handling appears to be closely related to the Motorola M68705p5. Early Alpha Denshi M68000 hardware utilized the M68705 before SNK / Alpha Denshi moved to a custom component. It's possible this is a rebadged custom.<br><br>
 There is a known dump for the ALPHA-8511 (possibly a M68705 from a bootleg) used on Super Stingray and a dump of the M68705 used on the Kyros no Yakata bootleg. The program code from the Kyros no Yakata bootleg may match the original ALPHA-8511 program code according to mame documentation.<br><br>
 The Sky Adventure bootleg purchased also uses a M68705p5 which is dumpable and will be submitted to mame along with the ROMs. Disassembly of the program code will be done for analysis based on current MCU implementation.<br><br>
-[**Readings have been pulled from the Gang Wars SP85N**](https://github.com/va7deo/alpha68k/blob/main/doc/ALPHA-68K96V/Gang%20Wars/SP85N_Readings/SP85N_Gang_Wars_Readings.png) revealed that the MCU pushes 15 interrupts per second, mame's driver for Alpha68k has this coded as 100 or 120 interrupts per second.
+[**Readings have been pulled from the Gang Wars SP85N**](https://github.com/va7deo/alpha68k/blob/main/doc/ALPHA-68K96V/Gang%20Wars/SP85N_Readings/SP85N_Gang_Wars_Readings.png) revealed that the MCU pushes 15 interrupts per second, mame's driver for Alpha68k has this coded as 100 or 120 interrupts per second.<br><br>
+Alpha68kMD generates the MCU interrupt at the rates in the PCB logic captures, as a fraction of the frame: 15.46 Hz (3.828 frames) on ALPHA-68K96V (Gang Wars SP85N capture) and 9.89 Hz (5.986 frames) on ALPHA-68K96II (Sky Soldiers ALPHA-8511 capture). Sky Adventure, Super Champion Baseball and Time Soldiers / Battle Field use their board's rate (no capture of their own). Earlier releases ran it at about 549 Hz (the counter was too narrow to reach the measured period). The MCU simulation keeps a coin press until the game's next coin query, so short coin taps are not missed. The YM2413 clock is 3.579545 MHz (X-3 crystal; earlier releases 3.600 MHz).<br><br>
+On the PCB the MCU holds the 68000's DTACK while it services each access (the SP85's own DTACK pin; 92-120 us CUS windows in the captures). Alpha68kMD holds it for 94.7 us on ALPHA-68K96V (Gang Wars coin query) and 99.5 us on ALPHA-68K96II (mean of the Sky Soldiers windows). Without an MCU dump this is a fixed approximation; the real time per access depends on the MCU program.<br><br>
+The PCB asserts VPA only for $500000-$7FFFFF and the interrupt acknowledge (74LS138 Y5-Y7, CPU schematic). Earlier releases also asserted it for the palette RAM at $400000, which could cut short the next opcode fetch: the cause of the occasional Gang Wars HARD CHECK / Super Champion Baseball HARD DEBUGGER boots and possibly of rare in-game glitches.
 
 # Core Features
 
 ### Save States
 
 - Four save-state slots in DDR memory. On controller 1, hold **L** and press **Down** to save, **Up** to restore, **Left / Right** to change the slot. The OSD also has Save / Restore entries (keyboard Alt-F1 / F1), the slot and an auto-increment option.
-- Saved: 68000 registers, work, sprite, text and palette RAM, Z80 registers and RAM, banking and latches, MCU coin state, rotary positions and the YM2203 / YM2413 registers. Video counters and line buffers rebuild within a frame. Without a save or restore running the core behaves exactly as before.
+- Saved: 68000 registers, work, sprite, text and palette RAM, Z80 registers and RAM, banking and latches, MCU coin state and interrupt timer, rotary positions and the YM2203 / YM2413 registers. Video counters and line buffers rebuild within a frame. Without a save or restore running the core behaves exactly as before.
 
 ### High Score Saving
 
