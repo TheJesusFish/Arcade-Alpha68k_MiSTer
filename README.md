@@ -1,7 +1,9 @@
 
-# Alpha Denshi M68000 FPGA Implementation
+# Alpha Denshi M68000 FPGA Implementation (Alpha68kMD)
 
 FPGA compatible core of Alpha Denshi M68000 (ALPHA68K96V based) arcade hardware for [**MiSTerFPGA**](https://github.com/MiSTer-devel/Main_MiSTer/wiki) written by **Erin Olafson**.
+
+**Alpha68kMD** is a modernised build of this core: current MiSTer framework, upstream copies of every CPU and sound module, all logic on the system clock with clock enables, save states, high score saving, per-controller Start/Coin, MAME DIP switch definitions and vertical games starting in vertical orientation. The emulation (CPU, interrupt, video and sound timing measured on the PCBs) is unchanged. RBF `Arcade-Alpha68kMD_YYYYMMDD.rbf`, MRAs `<Game> [MD].mra`.
 
 FPGA implementation has been verified against schematics for Sky Adventure. PCB measurements taken from Gang Wars (ALPHA-68K96V) and Sky Soldiers (ALPHA-96KII).
 
@@ -18,12 +20,12 @@ The intent is for this core to be a 1:1 playable implementation of Alpha Denshi 
 
 | Title | PCB<br>Number | Status  | Released | ROM Set |
 |-------|---------------|---------|----------|---------|
-| [**Gang Wars**](https://en.wikipedia.org/wiki/Gang_Wars_(video_game))                | ALPHA-68K96V (GW)  | **Implemented**                | **Yes** | .249 merged set |
-| [**Super Champion Baseball**](https://snk.fandom.com/wiki/Super_Champion_Baseball)   | ALPHA-68K96V (GW)  | **Implemented**                | **Yes** | .249 (**sbasebalj** only) |
-| [**Sky Adventure**](https://snk.fandom.com/wiki/Sky_Adventure)                       | ALPHA-68K96V (GW)  | **Implemented**                | **Yes** | .249 merged set |
-| [**バトル フィールド**](https://en.wikipedia.org/wiki/Time_Soldiers)<br>Time Soldiers      | ALPHA-68K96II (SS) | **Implemented**                | **Yes** | .249 merged set |
-| [**Sky Soldiers**](https://en.wikipedia.org/wiki/Sky_Soldiers)                       | ALPHA-68K96II (SS) | **Implemented**                | **Yes** | .249 merged set |
-| [**Gold Medalist**](https://snk.fandom.com/wiki/Gold_Medalist)                       | ALPHA-68K96II (SS) | **Implemented**                | **No**  | .249 (**goldmedl** only) |
+| [**Gang Wars**](https://en.wikipedia.org/wiki/Gang_Wars_(video_game))                | ALPHA-68K96V (GW)  | **Implemented**                | **Yes** | MAME 0.288 |
+| [**Super Champion Baseball**](https://snk.fandom.com/wiki/Super_Champion_Baseball)   | ALPHA-68K96V (GW)  | **Implemented**                | **Yes** | MAME 0.288 (**sbasebalj** plays; **sbasebal** see issues) |
+| [**Sky Adventure**](https://snk.fandom.com/wiki/Sky_Adventure)                       | ALPHA-68K96V (GW)  | **Implemented**                | **Yes** | MAME 0.288 |
+| [**バトル フィールド**](https://en.wikipedia.org/wiki/Time_Soldiers)<br>Time Soldiers      | ALPHA-68K96II (SS) | **Implemented**                | **Yes** | MAME 0.288 |
+| [**Sky Soldiers**](https://en.wikipedia.org/wiki/Sky_Soldiers)                       | ALPHA-68K96II (SS) | **Implemented**                | **Yes** | MAME 0.288 |
+| [**Gold Medalist**](https://snk.fandom.com/wiki/Gold_Medalist)                       | ALPHA-68K96II (SS) | **Implemented**                | **No**  | MAME 0.249 (**goldmedl** only) |
 | [**Paddle Mania**](https://snk.fandom.com/wiki/Paddle_Mania)                         | ALPHA-68K96I       | W.I.P                          | No      | N/A |
 | [**The Next Space**](https://snk.fandom.com/wiki/The_Next_Space)                     | A8004-1            | **Separate<br>Repository**     | No      | N/A |
 | [**Super Stingray**](https://segaretro.org/Super_Stingray)                           | N/A                | W.I.P                          | No      | N/A |
@@ -32,13 +34,21 @@ The intent is for this core to be a 1:1 playable implementation of Alpha Denshi 
 
 ## External Modules
 
-|Name| Purpose | Author |
-|----|---------|--------|
-| [**fx68k**](https://github.com/ijor/fx68k)                      | [**Motorola 68000 CPU**](https://en.wikipedia.org/wiki/Motorola_68000)   | Jorge Cwik     |
-| [**t80**](https://opencores.org/projects/t80)                   | [**Zilog Z80 CPU**](https://en.wikipedia.org/wiki/Zilog_Z80)             | Daniel Wallner |
-| [**jt2413**](https://github.com/jotego/jtopl)                   | [**Yamaha OPL-L**](https://en.wikipedia.org/wiki/Yamaha_YM2413)          | Jose Tejada    |
-| [**jt03**](https://github.com/jotego/jt12)                      | [**Yamaha OPN**](https://en.wikipedia.org/wiki/Yamaha_YM2203)            | Jose Tejada    |
-| [**yc_out**](https://github.com/MikeS11/MiSTerFPGA_YC_Encoder)  | [**Y/C Video Module**](https://en.wikipedia.org/wiki/S-Video)            | Mike Simone    |
+Copied unmodified from the listed repository and commit (sources and commits are also listed in `files.qip`).
+
+|Name| Purpose | Author | Source (commit) | License |
+|----|---------|--------|-----------------|---------|
+| [**fx68k**](https://github.com/ijor/fx68k)                      | [**Motorola 68000 CPU**](https://en.wikipedia.org/wiki/Motorola_68000)   | Jorge Cwik     | ijor/fx68k (`0602ee4`) | GPL-3.0 |
+| [**t80**](https://opencores.org/projects/t80)                   | [**Zilog Z80 CPU**](https://en.wikipedia.org/wiki/Zilog_Z80)             | Daniel Wallner, MiSTer-devel | MiSTer-devel/NeoGeo_MiSTer `rtl/cpu/T80` (`90a8350`) | T80 license (BSD-style) |
+| [**jt2413**](https://github.com/jotego/jtopl)                   | [**Yamaha OPL-L**](https://en.wikipedia.org/wiki/Yamaha_YM2413)          | Jose Tejada    | jotego/jtopl (`f96ff3e`) | GPL-3.0 |
+| [**jt03**](https://github.com/jotego/jt12)                      | [**Yamaha OPN**](https://en.wikipedia.org/wiki/Yamaha_YM2203)            | Jose Tejada    | jotego/jt12 (`eaab7e1`) with jotego/jt49 (`7f6abfd`) | GPL-3.0 |
+| [**MiSTer framework**](https://github.com/MiSTer-devel/Template_MiSTer) | `sys/` (video, audio, HPS I/O, scaler, screen rotation) | MiSTer-devel (Sorgelig et al.) | MiSTer-devel/Template_MiSTer (`e901a9f`) | GPL-2.0+ |
+| [**yc_out**](https://github.com/MikeS11/MiSTerFPGA_YC_Encoder)  | [**Y/C Video Module**](https://en.wikipedia.org/wiki/S-Video)            | Mike Simone    | part of the framework `sys/` | GPL-2.0+ |
+| [**Save states**](https://github.com/MiSTer-devel/Arcade-TaitoF2_MiSTer) | DDR save-state streamer, memory stream, DDR interface, slot UI (`rtl/savestate/`) | Martin Donlon | MiSTer-devel/Arcade-TaitoF2_MiSTer (`9438df9`) | GPL-2.0 |
+| [**Pause**](https://github.com/JimmyStones/Pause_MiSTer)        | OSD pause and dimming (`rtl/pause.v`, as modified by va7deo) | Jim Gregory | JimmyStones/Pause_MiSTer | GPL-3.0 |
+| SDRAM / ROM segments                                            | `rtl/mem/` SDRAM controller, segment, download buffer, dual-port RAM | Josh Bassett (nullobject) | as shipped by va7deo | MIT |
+
+The save-state controller (`rtl/alpha68k_ss.sv`) and the high score module (`rtl/hiscore.sv`) are written for this core, after the save-state flow of Arcade-TaitoF2_MiSTer and the high score flow of MiSTer-devel's Arcade-RaizingMD_MiSTer / Arcade-IGSPGM_MiSTer. High score tables come from MAME's `hiscore.dat` (MAME 0.288 hiscore plugin).
 
 # Known Issues / Tasks
 
@@ -51,6 +61,7 @@ The intent is for this core to be a 1:1 playable implementation of Alpha Denshi 
 - ~~Verify clocks on ALPHA-68K96II hardware; MAME is incorrect~~ [Task]  <br><br>
 - ~~Options removed currently until stability is checked, may be tied to RESET line~~ [Issue]  
 - Super Champion Baseball (sbasebal) freezes due to MCU ROM code (no dump) [Issue]  
+- Super Champion Baseball occasionally boots into its HARD DEBUGGER screen ("PALETTE RAM 0 BAD"), also with earlier releases; reload the game [Issue]  
 - Awaiting Gold Medalist PCB to verify and release; submit new ROM dump for bad ROMs [Issue]  
 
 # PCB Check List
@@ -121,6 +132,37 @@ The Sky Adventure bootleg purchased also uses a M68705p5 which is dumpable and w
 [**Readings have been pulled from the Gang Wars SP85N**](https://github.com/va7deo/alpha68k/blob/main/doc/ALPHA-68K96V/Gang%20Wars/SP85N_Readings/SP85N_Gang_Wars_Readings.png) revealed that the MCU pushes 15 interrupts per second, mame's driver for Alpha68k has this coded as 100 or 120 interrupts per second.
 
 # Core Features
+
+### Save States
+
+- Four save-state slots in DDR memory. On controller 1, hold **L** and press **Down** to save, **Up** to restore, **Left / Right** to change the slot. The OSD also has Save / Restore entries (keyboard Alt-F1 / F1), the slot and an auto-increment option.
+- Saved: 68000 registers, work, sprite, text and palette RAM, Z80 registers and RAM, banking and latches, MCU coin state, rotary positions and the YM2203 / YM2413 registers. Video counters and line buffers rebuild within a frame. Without a save or restore running the core behaves exactly as before.
+
+### High Score Saving
+
+- High score tables (MAME `hiscore.dat` entries) are restored when the game has initialised its table and saved to `<game>.nvm` when the OSD is opened (Autosave Hiscores On) or with "Save Hiscores". Super Champion Baseball has no table and shows no option.
+
+### Controls
+
+- Each controller drives its own player: controller 1 = P1 joystick, buttons, Start and Coin; controller 2 = P2 joystick, buttons, Start and Coin. There is no P2 Start or P2 Coin on controller 1.
+- Default gamepad mapping in every MRA: Button 1 → A, Button 2 → B, Button 3 → X, Start → Start, Coin → Select, Pause → R, Save states → L (hold). Time Soldiers / Battle Field: Rotate CW → X, Rotate CCW → Y.
+- Button names come from the game documentation in `doc/` (Gang Wars and Sky Adventure manuals, Battle Field flyer) or the original MRAs. No game uses button combinations (none are listed in the manuals).
+
+| Game | Button 1 | Button 2 | Button 3 |
+|------|----------|----------|----------|
+| Gang Wars | Kick | Punch | Jump |
+| Sky Adventure | Fire | Weapon | Plane |
+| Super Champion Baseball | Swing/Pitch/Field | Steal/Pick Off/Run | Time-Out |
+| Sky Soldiers | Cannon System | Missile System | — |
+| Time Soldiers / Battle Field | Shot | Weapon | — (Rotate CW / CCW) |
+
+### DIP Switches
+
+- DIP switch names, options and defaults follow MAME 0.288, except Gang Wars' Timer Speed, which defaults to Normal. A changed DIP switch takes effect at "Reset to apply" (or any reset); changing it no longer resets the core.
+
+### Orientation
+
+- Vertical games (Sky Adventure, Sky Soldiers, Time Soldiers, Battle Field) start in vertical orientation; the Orientation option is shown for them only. Flip Screen DIP switches are drawn by the core's raster and work on analog and HDMI.
 
 ### Rotary Joystick Support
 

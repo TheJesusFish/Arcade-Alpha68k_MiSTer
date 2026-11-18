@@ -272,7 +272,14 @@ always @ (*) begin
             // 0x0E-0x0F
             z80_bank_set_cs   <= ( z80_addr[3:1] == 3'b111 ) && ( !IORQ_n ) && (!WR_n); // select latches z80 D[4:0]
         end
-        default:;
+        // unused PCB ids: no selects (keeps the decoder free of latches)
+        default: begin
+            { m68k_rom_cs, m68k_rom_2_cs, m68k_ram_cs, m68k_spr_cs, m68k_pal_cs, m68k_fg_ram_cs, m68k_sp85_cs } <= 0;
+            { input_p1_cs, m68k_dsw_cs, m68k_rotary2_cs, m68k_rotary_msb_cs } <= 0;
+            { vbl_int_clr_cs, cpu_int_clr_cs, watchdog_clr_cs, m68k_latch_cs } <= 0;
+            { z80_rom_cs, z80_ram_cs, z80_latch_cs, z80_latch_clr_cs, z80_dac_cs } <= 0;
+            { z80_ym2413_cs, z80_ym2203_cs, z80_bank_set_cs, z80_banked_cs } <= 0;
+        end
     endcase
 
 end
