@@ -21,7 +21,7 @@ The intent is for this core to be a 1:1 playable implementation of Alpha Denshi 
 | Title | PCB<br>Number | Status  | Released | ROM Set |
 |-------|---------------|---------|----------|---------|
 | [**Gang Wars**](https://en.wikipedia.org/wiki/Gang_Wars_(video_game))                | ALPHA-68K96V (GW)  | **Implemented**                | **Yes** | MAME 0.288 |
-| [**Super Champion Baseball**](https://snk.fandom.com/wiki/Super_Champion_Baseball)   | ALPHA-68K96V (GW)  | **Implemented**                | **Yes** | MAME 0.288 (**sbasebalj** plays; **sbasebal** see issues) |
+| [**Super Champion Baseball**](https://snk.fandom.com/wiki/Super_Champion_Baseball)   | ALPHA-68K96V (GW)  | **Implemented**                | **Yes** | MAME 0.288 (pitch speed from an estimated MCU timer, see SP85 handling) |
 | [**Sky Adventure**](https://snk.fandom.com/wiki/Sky_Adventure)                       | ALPHA-68K96V (GW)  | **Implemented**                | **Yes** | MAME 0.288 |
 | [**バトル フィールド**](https://en.wikipedia.org/wiki/Time_Soldiers)<br>Time Soldiers      | ALPHA-68K96II (SS) | **Implemented**                | **Yes** | MAME 0.288 |
 | [**Sky Soldiers**](https://en.wikipedia.org/wiki/Sky_Soldiers)                       | ALPHA-68K96II (SS) | **Implemented**                | **Yes** | MAME 0.288 |
@@ -60,9 +60,14 @@ The save-state controller (`rtl/alpha68k_ss.sv`) and the high score module (`rtl
 - ~~GFX decode and palette display for ALPHA-68K96II~~ [Task]  
 - ~~Verify clocks on ALPHA-68K96II hardware; MAME is incorrect~~ [Task]  <br><br>
 - ~~Options removed currently until stability is checked, may be tied to RESET line~~ [Issue]  
-- Super Champion Baseball (sbasebal) freezes due to MCU ROM code (no dump) [Issue]  
+- ~~Super Champion Baseball (sbasebal) freezes due to MCU ROM code (no dump)~~ Alpha68kMD simulates the MCU's pitch timer (rate estimated, no dump) [Issue]  
 - ~~Super Champion Baseball occasionally boots into its HARD DEBUGGER screen ("PALETTE RAM 0 BAD") and Gang Wars into its HARD CHECK screen (PALETTE BAD)~~ Fixed in Alpha68kMD: the 68000's VPA was decoded for the palette RAM, unlike the PCB [Issue]  
 - Awaiting Gold Medalist PCB to verify and release; submit new ROM dump for bad ROMs [Issue]  
+- Super Champion Baseball's pitch timer rate (527.3 Hz) is an estimate, fitted so the slowest pitch reaches the game's 79 km/h floor and the fastest reads 141 km/h (rosters: 138-142 km/h); pitch speeds may differ from the PCB until the MCU is dumped or the timer is measured [Issue]  
+- On the PCB, Gang Wars' MCU answers $21 to every no-coin query and the game then reads DIP switch 1 through the MCU (a second ~100 us access); the core answers $00 and supplies the DIP byte itself, as MAME does: same DIP value, ~200 fewer CPU cycles per interrupt (timing only) [Issue]  
+- The ALPHA-68K96V schematic gives the interrupt acknowledge VPA but no DTACK; the core also asserts DTACK, which can leave the 68000's VMA armed and end a later bus cycle early (seen in simulation only at the earlier releases' ~549 Hz interrupt rate, not at the measured rates) [Issue]  
+- On the ALPHA-68K96V schematic the IPL0 / IPL1 latches are cleared by the game's reads of $D8000 / $E0000, not by the interrupt acknowledge; the core clears both on any acknowledge (timing only) [Issue]  
+- The ALPHA-68K96V 68000 runs at 10.588 MHz on average in the core (fractional divider, 5/17 of 72 MHz, halved) instead of the 20 MHz crystal / 2 = 10 MHz; SDRAM ROM wait states (~4 % in simulation) bring it to ~10.16 MHz of useful clocks. No V-board clock capture yet [Issue]  
 
 # PCB Check List
 
@@ -132,7 +137,9 @@ The Sky Adventure bootleg purchased also uses a M68705p5 which is dumpable and w
 [**Readings have been pulled from the Gang Wars SP85N**](https://github.com/va7deo/alpha68k/blob/main/doc/ALPHA-68K96V/Gang%20Wars/SP85N_Readings/SP85N_Gang_Wars_Readings.png) revealed that the MCU pushes 15 interrupts per second, mame's driver for Alpha68k has this coded as 100 or 120 interrupts per second.<br><br>
 Alpha68kMD generates the MCU interrupt at the rates in the PCB logic captures, as a fraction of the frame: 15.46 Hz (3.828 frames) on ALPHA-68K96V (Gang Wars SP85N capture) and 9.89 Hz (5.986 frames) on ALPHA-68K96II (Sky Soldiers ALPHA-8511 capture). Sky Adventure, Super Champion Baseball and Time Soldiers / Battle Field use their board's rate (no capture of their own). Earlier releases ran it at about 549 Hz (the counter was too narrow to reach the measured period). The MCU simulation keeps a coin press until the game's next coin query, so short coin taps are not missed. The YM2413 clock is 3.579545 MHz (X-3 crystal; earlier releases 3.600 MHz).<br><br>
 On the PCB the MCU holds the 68000's DTACK while it services each access (the SP85's own DTACK pin; 92-120 us CUS windows in the captures). Alpha68kMD holds it for 94.7 us on ALPHA-68K96V (Gang Wars coin query) and 99.5 us on ALPHA-68K96II (mean of the Sky Soldiers windows). Without an MCU dump this is a fixed approximation; the real time per access depends on the MCU program.<br><br>
-The PCB asserts VPA only for $500000-$7FFFFF and the interrupt acknowledge (74LS138 Y5-Y7, CPU schematic). Earlier releases also asserted it for the palette RAM at $400000, which could cut short the next opcode fetch: the cause of the occasional Gang Wars HARD CHECK / Super Champion Baseball HARD DEBUGGER boots and possibly of rare in-game glitches.
+The PCB asserts VPA only for $500000-$7FFFFF and the interrupt acknowledge (74LS138 Y5-Y7, CPU schematic). Earlier releases also asserted it for the palette RAM at $400000, which could cut short the next opcode fetch: the cause of the occasional Gang Wars HARD CHECK / Super Champion Baseball HARD DEBUGGER boots and possibly of rare in-game glitches.<br><br>
+Super Champion Baseball times each pitch with a counter the MCU keeps in shared RAM ($4023E) and divides by the flight time to show the pitch speed; without it the game divided by zero and froze (MAME patches the US program instead). Alpha68kMD runs that counter at 527.3 Hz, an estimate: the game's slowest pitch (44 frames) then reaches its own 79 km/h floor and the fastest (30 frames) reads 141 km/h, the rosters listing 138-142 km/h top speeds.<br><br>
+On ALPHA-68K96II the game sets the flip screen through the MCU (write to MCU offset $2D), as MAME emulates; Alpha68kMD now uses that instead of the DIP bit, which had Sky Soldiers flipped at Flip Screen Off (it turned counter-clockwise to compensate). All vertical games now turn clockwise.
 
 # Core Features
 
@@ -186,6 +193,7 @@ LS-30 Rotary Encoder | RP2040 | Wired USB | 1ms | 2241 | 95.52% | 0.747 ms | 2e8
 ### H/V Adjustments
 
 - There are two H/V toggles, H/V-sync positioning adjust and H/V-sync width adjust. Positioning will move the display for centering on CRT display. The sync width adjust can be used to for sync issues (rolling) without modifying the video timings.
+- Alpha68kMD: the adjustments are signed (-8 to +7) and every setting keeps one sync pulse per line and per frame (earlier releases lost vertical sync at most settings other than 0 and +1, and negative values moved the wrong way).
 
 ### Scandoubler Options
 

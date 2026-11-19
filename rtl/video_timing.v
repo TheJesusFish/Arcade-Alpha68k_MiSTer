@@ -26,16 +26,31 @@ module video_timing
 wire [8:0] h_ofs = 0;
 wire [8:0] HBL_START  = 256 ;
 wire [8:0] HBL_END    = 0 ;
-wire [8:0] HS_START   = HBL_START + 41 + $signed(hs_offset);
-wire [8:0] HS_END     = HBL_START + 73 + $signed(hs_offset) + $signed(hs_width);
 wire [8:0] HTOTAL     = 383;
 
 wire [8:0] v_ofs = 0;
 wire [8:0] VBL_START  = 241 ;
 wire [8:0] VBL_END    = 17 ;
-wire [8:0] VS_START   = VBL_START + 13 + $signed(vs_offset);
-wire [8:0] VS_END     = VBL_START + 21 + $signed(vs_offset) + $signed(vs_width);
 wire [8:0] VTOTAL     = 263 ;
+
+// sync adjustments are signed (-8..+7): pulse start, length of at least one, end wrapped at the line / frame total
+wire signed [10:0] hs_start_s = 11'sd297 + hs_offset;
+wire signed [10:0] hs_len_s   = 11'sd32  + hs_width;
+wire signed [10:0] vs_start_s = 11'sd254 + vs_offset;
+wire signed [10:0] vs_len_s   = 11'sd8   + vs_width;
+
+wire  [9:0] hs_len   = ( hs_len_s < 11'sd1 ) ? 10'd1 : hs_len_s[9:0];
+wire  [9:0] vs_len   = ( vs_len_s < 11'sd1 ) ? 10'd1 : vs_len_s[9:0];
+wire  [9:0] hs_end_r = hs_start_s[9:0] + hs_len;
+wire  [9:0] vs_end_r = vs_start_s[9:0] + vs_len;
+
+wire  [9:0] hs_end_w = ( hs_end_r > { 1'b0, HTOTAL } ) ? hs_end_r - ( { 1'b0, HTOTAL } + 10'd1 ) : hs_end_r;
+wire  [9:0] vs_end_w = ( vs_end_r > { 1'b0, VTOTAL } ) ? vs_end_r - ( { 1'b0, VTOTAL } + 10'd1 ) : vs_end_r;
+
+wire [8:0] HS_START   = hs_start_s[8:0];
+wire [8:0] HS_END     = hs_end_w[8:0];
+wire [8:0] VS_START   = vs_start_s[8:0];
+wire [8:0] VS_END     = vs_end_w[8:0];
 
 
 reg [8:0] v;

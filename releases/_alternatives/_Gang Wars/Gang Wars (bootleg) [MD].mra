@@ -8,6 +8,7 @@
     <manufacturer>bootleg</manufacturer>
     <region>World</region>
     <joystick>8-Way</joystick>
+    <rotation>horizontal</rotation>
 
     <switches default="fe,ff">
         <!-- IN3 -->

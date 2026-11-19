@@ -8,7 +8,7 @@
     <manufacturer>bootleg</manufacturer>
     <region>US</region>
     <joystick>8-Way</joystick>
-    <rotation>vertical (ccw)</rotation>
+    <rotation>vertical (cw)</rotation>
 
     <switches default="df,f7">
         <!-- IN3 -->

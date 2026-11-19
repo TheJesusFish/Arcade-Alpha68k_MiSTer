@@ -23,7 +23,7 @@
         <dip name="Lives" bits="12,13" ids="3,4,5,6" values="3,2,1,0"/>
     </switches>
 
-    <buttons names="Shot,Weapon,Start,Coin,Pause,Save States,-,Rotate CW,Rotate CCW" default="A,B,Start,Select,R,L,,X,Y"/>
+    <buttons names="Shot,Weapon,Start,Coin,Pause,Save States,-,Rotate CW,Rotate CCW" default="A,B,Start,Select,R,L,X,Y"/>
 
     <rom index="1">
         <part>07 01</part>

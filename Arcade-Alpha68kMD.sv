@@ -56,7 +56,7 @@ wire        ss_hold68, ss_holdz80, ss_z80_run, ss_holdsnd, ss_cpu_execute, ss_ir
 wire        ss_ovr_rd, ss_misc_wr;
 wire        mcu_ready;
 wire [15:0] ss_ovr_data;
-wire [111:0] ss_misc_out;
+wire [143:0] ss_misc_out;
 wire [211:0] ss_dir;
 wire        ss_aux_en;
 wire  [2:0] ss_aux_sel;
@@ -301,6 +301,7 @@ reg [7:0] dsw_m68k;
 reg [7:0] dsw_sp85;
 reg [7:0] coin;
 reg flip_dip ;
+reg flip_mcu ;
 
 
 always @ (posedge clk_sys ) begin
@@ -344,7 +345,8 @@ always @ (posedge clk_sys ) begin
     end
 
     if ( board_rev == 0 ) begin
-        flip_dip <= dsw_m68k[2] ;
+        // II boards: the MCU drives FLIP from the game's write to MCU offset $2D
+        flip_dip <= flip_mcu ;
     end else begin
         if ( pcb == SBASEBALJ || pcb == SBASEBAL ) begin
             // Super Champion Baseball: Flip Screen DIP is 68000 DSW bit 3
@@ -738,7 +740,8 @@ end
 
 //////////////////////////////////////////////////////////////////
 assign vert_game = ( pcb == SKYADV ) || ( pcb == SKYADVU ) || ( pcb == SKYSOLDR ) || ( pcb == TIMESOLD ) || ( pcb == BATFIELD );
-wire rotate_ccw = ( pcb == SKYSOLDR );
+// every vertical game turns clockwise (Sky Soldiers too, now that its flip follows the game)
+wire rotate_ccw = 1'b0;
 wire no_rotate = orientation | direct_video;
 wire video_rotated ;
 wire flip = 0;
@@ -766,6 +769,7 @@ end
 video_timing video_timing (
     .clk(clk_sys),
     .clk_pix(clk_6M),
+    .reset(~pll_locked),
     .pcb(pcb),
     .hc(hc),
     .vc(vc),
@@ -1272,6 +1276,39 @@ reg  [7:0]  mcu_2nd_din;
 reg         mcu_2nd_wh;
 reg         mcu_2nd_wl;
 
+// Super Champion Baseball: the MCU's pitch timer, a word in shared RAM $4023E, 527.3 Hz (estimated, MCU undumped)
+localparam [17:0] SB_TICK_LAST = 18'd136544;
+wire        sb_game = ( pcb == SBASEBAL ) || ( pcb == SBASEBALJ );
+reg  [17:0] sb_div;
+reg  [15:0] sb_timer;
+reg         sb_wr;
+wire        sb_wr_now = sb_wr & ~mcu_wh & ~mcu_wl & ~holdz80;
+
+always @ (posedge clk_sys) begin
+    if ( reset ) begin
+        sb_div   <= 0;
+        sb_timer <= 0;
+        sb_wr    <= 0;
+    end else if ( ss_misc_wr ) begin
+        sb_div   <= ss_misc_out[131:114];
+        sb_timer <= ss_misc_out[113:98];
+        sb_wr    <= 0;
+    end else begin
+        if ( sb_wr_now ) begin
+            sb_wr <= 0;
+        end
+        if ( sb_game && !holdz80 ) begin
+            if ( sb_div >= SB_TICK_LAST ) begin
+                sb_div   <= 0;
+                sb_timer <= sb_timer + 1'd1;
+                sb_wr    <= 1;
+            end else begin
+                sb_div <= sb_div + 1'd1;
+            end
+        end
+    end
+end
+
 /// 68k cpu
 always @ (posedge clk_sys) begin
 
@@ -1298,6 +1335,7 @@ always @ (posedge clk_sys) begin
 
         credits <= 0;
         coin_latch <= 0;
+        flip_mcu <= 0;
         coin_prev <= { coin_b, coin_a };
         coin_pend <= 0;
         mcu_2nd_write <= 0;
@@ -1491,6 +1529,11 @@ always @ (posedge clk_sys) begin
             end else begin
                 // writes
 
+                // flip screen request to the MCU ($30005B, offset $2D)
+                if ( m68k_sp85_cs == 1 && m68k_lds_n == 0 && m68k_a[13:1] == 13'h002d ) begin
+                    flip_mcu <= m68k_dout[0];
+                end
+
                 if ( m68k_latch_cs == 1 ) begin
                     // text tile banking
                     if ( m68k_uds_n == 0 && board_rev == 3) begin // UDS 0x80000 only Rev V
@@ -1590,14 +1633,16 @@ always @ (posedge clk_sys) begin
             m68k_ipl0_n      <= ss_misc_out[46];
             m68k_ipl1_n      <= ss_misc_out[47];
             coin_pend        <= ss_misc_out[96:95];
+            flip_mcu         <= ss_misc_out[97];
         end
 
     end
 end
 
-// core registers in the save state (112 bits)
-wire [111:0] ss_misc_in = { 15'd0, coin_pend, clk_io_count, rotary2, rotary1, m68k_ipl1_n, m68k_ipl0_n, dac, mcu_busy, coin_count,
-                            coin_latch, credits, io_port_a_wr, z80_nmi_suppress, z80_bank, tile_bank, m68k_latch };
+// core registers in the save state (144 bits)
+wire [143:0] ss_misc_in = { 12'd0, sb_div, sb_timer, flip_mcu, coin_pend, clk_io_count, rotary2, rotary1, m68k_ipl1_n,
+                            m68k_ipl0_n, dac, mcu_busy, coin_count, coin_latch, credits, io_port_a_wr, z80_nmi_suppress,
+                            z80_bank, tile_bank, m68k_latch };
 
 
 wire    m68k_rom_cs;
@@ -1953,9 +1998,9 @@ dual_port_ram #(.LEN(8192)) ram8kx8_H (
     .q_a (  m68k_ram_dout[15:8] ),
 
     .clock_b ( clk_sys ),
-    .address_b ( mcu_addr ),
-    .wren_b ( mcu_wh ),
-    .data_b ( mcu_din ),
+    .address_b ( sb_wr_now ? 13'h011f : mcu_addr ),
+    .wren_b ( sb_wr_now | mcu_wh ),
+    .data_b ( sb_wr_now ? sb_timer[15:8] : mcu_din ),
     .q_b( mcu_dout )
 
     );
@@ -1969,9 +2014,9 @@ dual_port_ram #(.LEN(8192)) ram8kx8_L (
     .q_a ( m68k_ram_dout[7:0] ),
 
     .clock_b ( clk_sys ),
-    .address_b ( mcu_addr ),
-    .wren_b ( mcu_wl ),
-    .data_b ( mcu_din ),
+    .address_b ( sb_wr_now ? 13'h011f : mcu_addr ),
+    .wren_b ( sb_wr_now | mcu_wl ),
+    .data_b ( sb_wr_now ? sb_timer[7:0] : mcu_din ),
     .q_b( mcu_dout )
     );
 

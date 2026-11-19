@@ -61,8 +61,8 @@ module alpha68k_ss
     output reg  [7:0] rp_din,
 
     // core registers
-    input     [111:0] misc_in,
-    output    [111:0] misc_out,
+    input     [143:0] misc_in,
+    output    [143:0] misc_out,
     output            misc_wr,
 
     // RAM ports while frozen
@@ -197,7 +197,7 @@ auto_save_adaptor #(.N_BITS(224), .SS_IDX(SSIDX_Z80)) z80_ss (
 );
 
 // core registers
-auto_save_adaptor #(.N_BITS(112), .SS_IDX(SSIDX_MISC)) misc_ss (
+auto_save_adaptor #(.N_BITS(144), .SS_IDX(SSIDX_MISC)) misc_ss (
     .clk,
     .ssbus(ssb[2]),
     .bits_in(misc_in),
