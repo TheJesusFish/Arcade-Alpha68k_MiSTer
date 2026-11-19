@@ -25,7 +25,7 @@ The intent is for this core to be a 1:1 playable implementation of Alpha Denshi 
 | [**Sky Adventure**](https://snk.fandom.com/wiki/Sky_Adventure)                       | ALPHA-68K96V (GW)  | **Implemented**                | **Yes** | MAME 0.288 |
 | [**バトル フィールド**](https://en.wikipedia.org/wiki/Time_Soldiers)<br>Time Soldiers      | ALPHA-68K96II (SS) | **Implemented**                | **Yes** | MAME 0.288 |
 | [**Sky Soldiers**](https://en.wikipedia.org/wiki/Sky_Soldiers)                       | ALPHA-68K96II (SS) | **Implemented**                | **Yes** | MAME 0.288 |
-| [**Gold Medalist**](https://snk.fandom.com/wiki/Gold_Medalist)                       | ALPHA-68K96II (SS) | **Implemented**                | **No**  | MAME 0.249 (**goldmedl** only) |
+| [**Gold Medalist**](https://snk.fandom.com/wiki/Gold_Medalist)                       | ALPHA-68K96II (SS) | **Implemented**                | **Yes** | MAME 0.288 (**goldmedl** only; checked against MAME, no PCB) |
 | [**Paddle Mania**](https://snk.fandom.com/wiki/Paddle_Mania)                         | ALPHA-68K96I       | W.I.P                          | No      | N/A |
 | [**The Next Space**](https://snk.fandom.com/wiki/The_Next_Space)                     | A8004-1            | **Separate<br>Repository**     | No      | N/A |
 | [**Super Stingray**](https://segaretro.org/Super_Stingray)                           | N/A                | W.I.P                          | No      | N/A |
@@ -62,7 +62,8 @@ The save-state controller (`rtl/alpha68k_ss.sv`) and the high score module (`rtl
 - ~~Options removed currently until stability is checked, may be tied to RESET line~~ [Issue]  
 - ~~Super Champion Baseball (sbasebal) freezes due to MCU ROM code (no dump)~~ Alpha68kMD simulates the MCU's pitch timer (rate estimated, no dump) [Issue]  
 - ~~Super Champion Baseball occasionally boots into its HARD DEBUGGER screen ("PALETTE RAM 0 BAD") and Gang Wars into its HARD CHECK screen (PALETTE BAD)~~ Fixed in Alpha68kMD: the 68000's VPA was decoded for the palette RAM, unlike the PCB [Issue]  
-- Awaiting Gold Medalist PCB to verify and release; submit new ROM dump for bad ROMs [Issue]  
+- ~~Awaiting Gold Medalist PCB to verify and release~~ Alpha68kMD releases goldmedl checked against MAME 0.288 only, with no PCB measurements; still awaiting a PCB to verify; submit new ROM dump for bad ROMs [Issue]  
+- Gold Medalist set 2 and bootleg (goldmedla, goldmedlb) are not included: they run on the ALPHA-68K96III board (10 MHz 68000, program ROM at $40000, different tile ROM), which the core does not implement [Issue]  
 - Super Champion Baseball's pitch timer rate (527.3 Hz) is an estimate, fitted so the slowest pitch reaches the game's 79 km/h floor and the fastest reads 141 km/h (rosters: 138-142 km/h); pitch speeds may differ from the PCB until the MCU is dumped or the timer is measured [Issue]  
 - On the PCB, Gang Wars' MCU answers $21 to every no-coin query and the game then reads DIP switch 1 through the MCU (a second ~100 us access); the core answers $00 and supplies the DIP byte itself, as MAME does: same DIP value, ~200 fewer CPU cycles per interrupt (timing only) [Issue]  
 - The ALPHA-68K96V schematic gives the interrupt acknowledge VPA but no DTACK; the core also asserts DTACK, which can leave the 68000's VMA armed and end a later bus cycle early (seen in simulation only at the earlier releases' ~549 Hz interrupt rate, not at the measured rates) [Issue]  
@@ -135,7 +136,7 @@ The SP85N or ALPHA-8511/8411 utilized on Alpha Denshi M68000 hardware for I/O ha
 There is a known dump for the ALPHA-8511 (possibly a M68705 from a bootleg) used on Super Stingray and a dump of the M68705 used on the Kyros no Yakata bootleg. The program code from the Kyros no Yakata bootleg may match the original ALPHA-8511 program code according to mame documentation.<br><br>
 The Sky Adventure bootleg purchased also uses a M68705p5 which is dumpable and will be submitted to mame along with the ROMs. Disassembly of the program code will be done for analysis based on current MCU implementation.<br><br>
 [**Readings have been pulled from the Gang Wars SP85N**](https://github.com/va7deo/alpha68k/blob/main/doc/ALPHA-68K96V/Gang%20Wars/SP85N_Readings/SP85N_Gang_Wars_Readings.png) revealed that the MCU pushes 15 interrupts per second, mame's driver for Alpha68k has this coded as 100 or 120 interrupts per second.<br><br>
-Alpha68kMD generates the MCU interrupt at the rates in the PCB logic captures, as a fraction of the frame: 15.46 Hz (3.828 frames) on ALPHA-68K96V (Gang Wars SP85N capture) and 9.89 Hz (5.986 frames) on ALPHA-68K96II (Sky Soldiers ALPHA-8511 capture). Sky Adventure, Super Champion Baseball and Time Soldiers / Battle Field use their board's rate (no capture of their own). Earlier releases ran it at about 549 Hz (the counter was too narrow to reach the measured period). The MCU simulation keeps a coin press until the game's next coin query, so short coin taps are not missed. The YM2413 clock is 3.579545 MHz (X-3 crystal; earlier releases 3.600 MHz).<br><br>
+Alpha68kMD generates the MCU interrupt at the rates in the PCB logic captures, as a fraction of the frame: 15.46 Hz (3.828 frames) on ALPHA-68K96V (Gang Wars SP85N capture) and 9.89 Hz (5.986 frames) on ALPHA-68K96II (Sky Soldiers ALPHA-8511 capture). Sky Adventure, Super Champion Baseball, Time Soldiers / Battle Field and Gold Medalist use their board's rate (no capture of their own). Earlier releases ran it at about 549 Hz (the counter was too narrow to reach the measured period). The MCU simulation keeps a coin press until the game's next coin query, so short coin taps are not missed. The YM2413 clock is 3.579545 MHz (X-3 crystal; earlier releases 3.600 MHz).<br><br>
 On the PCB the MCU holds the 68000's DTACK while it services each access (the SP85's own DTACK pin; 92-120 us CUS windows in the captures). Alpha68kMD holds it for 94.7 us on ALPHA-68K96V (Gang Wars coin query) and 99.5 us on ALPHA-68K96II (mean of the Sky Soldiers windows). Without an MCU dump this is a fixed approximation; the real time per access depends on the MCU program.<br><br>
 The PCB asserts VPA only for $500000-$7FFFFF and the interrupt acknowledge (74LS138 Y5-Y7, CPU schematic). Earlier releases also asserted it for the palette RAM at $400000, which could cut short the next opcode fetch: the cause of the occasional Gang Wars HARD CHECK / Super Champion Baseball HARD DEBUGGER boots and possibly of rare in-game glitches.<br><br>
 Super Champion Baseball times each pitch with a counter the MCU keeps in shared RAM ($4023E) and divides by the flight time to show the pitch speed; without it the game divided by zero and froze (MAME patches the US program instead). Alpha68kMD runs that counter at 527.3 Hz, an estimate: the game's slowest pitch (44 frames) then reaches its own 79 km/h floor and the fastest (30 frames) reads 141 km/h, the rosters listing 138-142 km/h top speeds.<br><br>
@@ -156,6 +157,8 @@ On ALPHA-68K96II the game sets the flip screen through the MCU (write to MCU off
 
 - Each controller drives its own player: controller 1 = P1 joystick, buttons, Start and Coin; controller 2 = P2 joystick, buttons, Start and Coin. There is no P2 Start or P2 Coin on controller 1.
 - Default gamepad mapping in every MRA: Button 1 → A, Button 2 → B, Button 3 → X, Start → Start, Coin → Select, Pause → R, Save states → L (hold). Time Soldiers / Battle Field: Rotate CW → X, Rotate CCW → Y.
+- The OSD's Define Buttons order is the game's buttons first (Button 1-3, then Rotate CW / CCW), then Start, Coin, Pause and Save States.
+- MiSTer stores a defined button map per game (`config/inputs/<setname>_input_*.map`), shared with the original Alpha68k core. A map saved with the original core or an earlier Alpha68kMD release has a different button order; delete it or define the buttons again.
 - Button names come from the game documentation in `doc/` (Gang Wars and Sky Adventure manuals, Battle Field flyer) or the original MRAs. No game uses button combinations (none are listed in the manuals).
 
 | Game | Button 1 | Button 2 | Button 3 |
@@ -165,10 +168,13 @@ On ALPHA-68K96II the game sets the flip screen through the MCU (write to MCU off
 | Super Champion Baseball | Swing/Pitch/Field | Steal/Pick Off/Run | Time-Out |
 | Sky Soldiers | Cannon System | Missile System | — |
 | Time Soldiers / Battle Field | Shot | Weapon | — (Rotate CW / CCW) |
+| Gold Medalist | Run/Spin/Power | Run/Spin/Hit Power | Jump/Jab/Throw Angle |
+
+- Gold Medalist is a 4-player, buttons-only game: controllers 1-4 drive players 1-4, and each controller's Start joins that player (the game's start buttons #1-#4). Player 3's Start is read from a spare bit of the DIP switch port, where the game expects it (MAME does not map it). The board has two coin inputs, so Coin works on controllers 1 and 2 only.
 
 ### DIP Switches
 
-- DIP switch names, options and defaults follow MAME 0.288, except Gang Wars' Timer Speed, which defaults to Normal. A changed DIP switch takes effect at "Reset to apply" (or any reset); changing it no longer resets the core.
+- DIP switch names, options and defaults follow MAME 0.288, except Gang Wars' Timer Speed, which defaults to Normal. Gold Medalist's Cabinet setting uses two separate switches, so it is shown as Cabinet (Upright / Cocktail) and Upright Players (2 / 4); its 100M Dash Speed options are shortened to fit the OSD. A changed DIP switch takes effect at "Reset to apply" (or any reset); changing it no longer resets the core.
 
 ### Orientation
 

@@ -23,7 +23,7 @@
         <dip name="Lives" bits="12,13" ids="3,4,5,6" values="3,2,1,0"/>
     </switches>
 
-    <buttons names="Cannon System,Missile System,Start,Coin,Pause,Save States" default="A,B,Start,Select,R,L"/>
+    <buttons names="Cannon System,Missile System,-,-,-,Start,Coin,Pause,Save States" default="A,B,Start,Select,R,L"/>
 
     <rom index="1">
         <part>05 00</part>

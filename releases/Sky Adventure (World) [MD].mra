@@ -22,7 +22,7 @@
         <dip name="Freeze" bits="5" ids="Off,On" values="1,0"/>
     </switches>
 
-    <buttons names="Fire,Weapon,Start,Coin,Pause,Save States,Plane" default="A,B,Start,Select,R,L,X"/>
+    <buttons names="Fire,Weapon,Plane,-,-,Start,Coin,Pause,Save States" default="A,B,X,Start,Select,R,L"/>
 
     <rom index="1">
         <part>00 34</part>

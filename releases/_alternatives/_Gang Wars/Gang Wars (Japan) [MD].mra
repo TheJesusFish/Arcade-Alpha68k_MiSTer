@@ -24,7 +24,7 @@
         <dip name="Freeze" bits="5" ids="Off,On" values="1,0"/>
     </switches>
 
-    <buttons names="Kick,Punch,Start,Coin,Pause,Save States,Jump" default="A,B,Start,Select,R,L,X"/>
+    <buttons names="Kick,Punch,Jump,-,-,Start,Coin,Pause,Save States" default="A,B,X,Start,Select,R,L"/>
 
     <rom index="1">
         <part>01 3A</part>

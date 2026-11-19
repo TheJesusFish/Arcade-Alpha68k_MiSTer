@@ -23,7 +23,7 @@
         <dip name="Unknown" bits="5" ids="Off,On" values="1,0"/>
     </switches>
 
-    <buttons names="Swing/Pitch/Field,Steal/Pick Off/Run,Start,Coin,Pause,Save States,Time-Out" default="A,B,Start,Select,R,L,X"/>
+    <buttons names="Swing/Pitch/Field,Steal/Pick Off/Run,Time-Out,-,-,Start,Coin,Pause,Save States" default="A,B,X,Start,Select,R,L"/>
 
     <rom index="1">
         <part>02 3A</part>

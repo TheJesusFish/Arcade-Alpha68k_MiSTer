@@ -278,8 +278,8 @@ end
 
 wire [21:0] gamma_bus;
 
-// joystick bits: [4] button 1, [5] button 2, [6] start, [7] coin, [8] pause, [9] save state, [10] button 3, [11] rotate CW, [12] rotate CCW
-wire [15:0] pad0 = joy0[9] ? 16'd0 : joy0;   // pad 1 is muted for the game while L (save state) is held
+// joystick bits: [4] button 1, [5] button 2, [6] button 3, [7] rotate CW, [8] rotate CCW, [9] start, [10] coin, [11] pause, [12] save state
+wire [15:0] pad0 = joy0[12] ? 16'd0 : joy0;  // pad 1 is muted for the game while L (save state) is held
 wire [15:0] pad1 = joy1;
 wire [15:0] pad2 = joy2;
 wire [15:0] pad3 = joy3;
@@ -308,10 +308,11 @@ always @ (posedge clk_sys ) begin
     if ( pcb == GOLDMEDL ) begin
         // special case gold medal
         // controls are active low
-        p1   <=  { start1, start3, p2_buttons[1], p1_buttons[1], p2_buttons[2], p2_buttons[0], p1_buttons[2], p1_buttons[0]} ;
+        p1   <=  { start1, 1'b0, p2_buttons[1], p1_buttons[1], p2_buttons[2], p2_buttons[0], p1_buttons[2], p1_buttons[0]} ;
         p2   <=  { start2, start4, p4_buttons[1], p3_buttons[1], p4_buttons[2], p4_buttons[0], p3_buttons[2], p3_buttons[0]} ;
 
-        dsw_m68k <=  ~{sw0_l[7:2], ~key_test, ~key_service};
+        // player 3's Start is DIP port bit 4 (the game merges it into IN0 bit 6)
+        dsw_m68k <=  ~{sw0_l[7:5], sw0_l[4] & ~start3, sw0_l[3:2], ~key_test, ~key_service};
         dsw_sp85 <=   {sw1_l[7:0] };
     end else if ( invert_in == 0 ) begin
         // non inverted - active low
@@ -387,21 +388,21 @@ reg         p4_down;
 reg         p4_up;
 reg  [2:0]  p4_buttons;
 
-wire [2:0]  pad0_buttons = { pad0[10], pad0[5], pad0[4] };
-wire [2:0]  pad1_buttons = { pad1[10], pad1[5], pad1[4] };
+wire [2:0]  pad0_buttons = { pad0[6], pad0[5], pad0[4] };
+wire [2:0]  pad1_buttons = { pad1[6], pad1[5], pad1[4] };
 
 always @ * begin
     p3_right   = 0;
     p3_left    = 0;
     p3_down    = 0;
     p3_up      = 0;
-    p3_buttons = { pad2[10], pad2[5], pad2[4] };
+    p3_buttons = { pad2[6], pad2[5], pad2[4] };
 
     p4_right   = 0;
     p4_left    = 0;
     p4_down    = 0;
     p4_up      = 0;
-    p4_buttons = { pad3[10], pad3[5], pad3[4] };
+    p4_buttons = { pad3[6], pad3[5], pad3[4] };
 
     if ( pcb == GOLDMEDL ) begin
         p1_right   = 0;
@@ -443,13 +444,13 @@ always @ * begin
 end
 
 // each controller drives its own player's start and coin
-wire start1  = pad0[6] | key_start_1p;
-wire start2  = pad1[6] | key_start_2p;
-wire start3  = pad2[6] | key_start_3p;
-wire start4  = pad3[6] | key_start_4p;
-wire coin_a  = pad0[7] | key_coin_a;
-wire coin_b  = pad1[7] | key_coin_b;
-wire b_pause = joy0[8] | joy1[8] | key_pause;
+wire start1  = pad0[9] | key_start_1p;
+wire start2  = pad1[9] | key_start_2p;
+wire start3  = pad2[9] | key_start_3p;
+wire start4  = pad3[9] | key_start_4p;
+wire coin_a  = pad0[10] | key_coin_a;
+wire coin_b  = pad1[10] | key_coin_b;
+wire b_pause = joy0[11] | joy1[11] | key_pause;
 
 // Keyboard handler
 
@@ -555,10 +556,10 @@ wire rot1_ccw;
 wire rot2_cw;
 wire rot2_ccw;
 
-assign rot1_cw  = p1_swap ? (pad1[11] | key_ls30_p2[0]) : (pad0[11] | key_ls30_p1[0]);
-assign rot1_ccw = p1_swap ? (pad1[12] | key_ls30_p2[1]) : (pad0[12] | key_ls30_p1[1]);
-assign rot2_cw  = p1_swap ? (pad0[11] | key_ls30_p1[0]) : (pad1[11] | key_ls30_p2[0]);
-assign rot2_ccw = p1_swap ? (pad0[12] | key_ls30_p1[1]) : (pad1[12] | key_ls30_p2[1]);
+assign rot1_cw  = p1_swap ? (pad1[7] | key_ls30_p2[0]) : (pad0[7] | key_ls30_p1[0]);
+assign rot1_ccw = p1_swap ? (pad1[8] | key_ls30_p2[1]) : (pad0[8] | key_ls30_p1[1]);
+assign rot2_cw  = p1_swap ? (pad0[7] | key_ls30_p1[0]) : (pad1[7] | key_ls30_p2[0]);
+assign rot2_ccw = p1_swap ? (pad0[8] | key_ls30_p1[1]) : (pad1[8] | key_ls30_p2[1]);
 
 always @ (posedge clk_sys) begin
 
@@ -2617,7 +2618,7 @@ savestate_ui #(.INFO_TIMEOUT_BITS(25)) savestate_ui
     .clk            (clk_sys),
     .ps2_key        (ss_ps2_key),
     .allow_ss       (~hs_hold68),
-    .joySS          (joy0[9]),
+    .joySS          (joy0[12]),
     .joyRight       (joy0[0]),
     .joyLeft        (joy0[1]),
     .joyDown        (joy0[2]),
