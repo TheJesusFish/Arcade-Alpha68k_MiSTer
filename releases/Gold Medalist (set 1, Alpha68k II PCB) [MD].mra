@@ -42,13 +42,10 @@
 
         <!-- audiocpu - starts at 0x80000 -->
         <part name="38.bin" crc="4bf251b8"/>
-        <part repeat="0x10000"> FF</part>
         <part name="39.bin" crc="1d92be86"/>
-        <part repeat="0x10000"> FF</part>
         <part name="40.bin" crc="8dafc4e8"/>
-        <part repeat="0x10000"> FF</part>
         <part name="1.bin" crc="1e78062c"/>
-        <part repeat="0x10000"> FF</part>
+        <part repeat="0x40000"> FF</part>
 
         <!-- gfx1 - starts at 0x100000 -->
         <interleave output="16">
